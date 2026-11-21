@@ -1,0 +1,44 @@
+# Zentraler Caddy (Ablage: /opt/docker/proxy/Caddyfile). Werte kommen aus /opt/docker/proxy/.env.
+# Nach Änderungen:  docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+{
+	email {$ACME_EMAIL}
+}
+
+# Gemeinsame Sicherheits-Header. "?" setzt den Wert nur, wenn das Programm selbst keinen schickt.
+(sicherheit) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		?X-Content-Type-Options "nosniff"
+		?Referrer-Policy "strict-origin-when-cross-origin"
+		?Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+		-Server
+	}
+}
+
+# ---------------------------------------------------------------- app1: Wolthusen Hub (Webseite und Hub)
+{$HUB_DOMAIN} {
+	import sicherheit
+
+	# Uploads und Backups, Umzugsdatei bis 2 GB (die Grenzen pro Anfrage prüft der Hub selbst)
+	request_body {
+		max_size 2GB
+	}
+
+	# Nur Hub und interne Adressen aus Suchmaschinen heraushalten, die öffentliche Webseite soll bei Google erscheinen
+	@intern path /hub* /api/* /static/* /media/* /login* /setup* /invite/* /passwort-* /auth/* /bestellen/* /teilen/* /spielerbogen* /kalender/* /supporter-karte/storno/*
+	header @intern X-Robots-Tag "noindex, nofollow"
+
+	reverse_proxy wolthusen-hub:8765
+}
+
+# Weitere Adressen (z. B. www.) leiten dauerhaft auf die Hub-Domain um. Mehrere mit Leerzeichen, nie leer setzen.
+{$HUB_REDIRECTS:umleitung.localhost} {
+	redir https://{$HUB_DOMAIN}{uri} permanent
+}
+
+# ---------------------------------------------------------------- app2: Vorlage (Domain in .env als APP2_DOMAIN)
+# {$APP2_DOMAIN} {
+# 	import sicherheit
+# 	reverse_proxy app2:3000
+# }

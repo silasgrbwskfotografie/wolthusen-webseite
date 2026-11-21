@@ -1,0 +1,31 @@
+# Betrieb hinter einem zentralen Reverse Proxy (z. B. /opt/docker/proxy mit Caddy für mehrere Programme).
+# Aktivieren über die .env dieses Ordners:  COMPOSE_FILE=docker-compose.proxy.yml
+# Der Hub öffnet keinen Port nach außen, Caddy erreicht ihn im gemeinsamen Docker-Netzwerk "proxy" unter wolthusen-hub:8765.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  hub:
+    build: .
+    image: wolthusen-hub:latest
+    container_name: wolthusen-hub
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TMH_SECURE_COOKIES: "1"
+      TMH_TRUST_PROXY: "1"
+      # Öffentliche Adresse für Links (Mails, Instagram-Bilder): kommt aus DOMAIN in der .env, nur dort ändern
+      SITE_URL: "https://${DOMAIN}"
+    volumes:
+      - ./data:/data
+    expose:
+      - "8765"
+    networks: [proxy]
+    logging: *logging
+
+networks:
+  proxy:
+    external: true

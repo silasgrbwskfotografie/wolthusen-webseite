@@ -1,0 +1,9 @@
+[Unit]
+Description=Wolthusen Hub Update-Helfer: wartet auf Anfragen aus dem Hub
+
+[Path]
+PathExists=/opt/docker/apps/wolthusen-hub/data/updater/request
+Unit=wolthusen-updater.service
+
+[Install]
+WantedBy=multi-user.target

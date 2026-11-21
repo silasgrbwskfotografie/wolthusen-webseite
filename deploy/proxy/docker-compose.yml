@@ -1,0 +1,45 @@
+# Zentraler Reverse Proxy für alle Programme auf dem Server (Ablage auf dem Server: /opt/docker/proxy)
+# Caddy ist der EINZIGE Container mit Ports nach außen (80, 443). Programme hängen im Netzwerk "proxy" und öffnen selbst keine Ports.
+# Start:  cd /opt/docker/proxy && docker compose up -d
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  caddy:
+    image: caddy:2
+    container_name: proxy-caddy
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # Zertifikate (nie löschen, sonst neue Anfragen bei Let's Encrypt)
+      - caddy_config:/config
+    networks: [proxy]
+    logging: *logging
+
+  # Vorlage für ein zweites Programm (app2), das direkt hier läuft. Alternativ wie der Hub in einem
+  # eigenen Ordner unter /opt/docker/apps mit eigenem docker-compose.yml und Netzwerk "proxy" (external).
+  # app2:
+  #   image: beispiel/app2:latest      # oder: build: ../apps/app2
+  #   container_name: app2
+  #   restart: unless-stopped
+  #   env_file: ../apps/app2/.env
+  #   expose:
+  #     - "3000"                       # interner Port des Programms, NICHT unter ports eintragen
+  #   networks: [proxy]
+  #   logging: *logging
+
+networks:
+  proxy:
+    name: proxy                      # fester Name, damit andere Compose-Projekte es als external finden
+
+volumes:
+  caddy_data:
+  caddy_config:

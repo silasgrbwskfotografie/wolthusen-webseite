@@ -1,0 +1,5 @@
+Hier die PDFs für die Seite „Mitglied werden“ ablegen (genau diese Dateinamen):
+  beitrittserklaerung.pdf
+  einverstaendniserklaerung.pdf
+  satzung.pdf
+Sie liegen auf der bisherigen Webseite unter /assets/files/. Danach einmal update.sh auf dem Server ausführen.

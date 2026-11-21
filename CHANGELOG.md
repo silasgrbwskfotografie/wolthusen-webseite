@@ -1,0 +1,21 @@
+# Änderungen
+
+## 1.0 (21.11.2026)
+Erste Fassung des Wolthusen Hub: Vereinswebseite und Vereinsverwaltung des SV Amisia Wolthusen in einem Server.
+Grundlage ist der Emden Tigers Hub 5.16 (der frühere Änderungsverlauf steht dort im Repository).
+
+- Öffentliche Webseite im Wolthusen Design (Violett, Nachtviolett, Weiß, Wappen „SV AMISIA“), Menü mit Untermenüs Sportarten und Verein
+  - Feste Seiten aus `seiten/`: Start, Fußball, American Football, Turnen & Gymnastik, Saal, Partner, Mitglied werden
+  - Aus dem Hub: Mannschaftsseiten `/mannschaft/<name>` (Training, Trainer, Kader, Spiele, Ergebnisse, fussball.de), Spielplan aller Mannschaften,
+    News, Kontaktformular mit Anliegen (Mitgliedschaft, Probetraining, Turnen, Saal, Sponsoring), Newsletter, Dauerkarte, Impressum, Datenschutz
+  - Startseite mit nächsten Spielen, Ergebnissen, News, Partnern und Instagram (im Hub sortier- und ausblendbar)
+- Fußball statt American Football: Mannschaften Erste, Zweite, Alte Herren und D- bis G-Jugend, Positionen Tor/Abwehr/Mittelfeld/Sturm,
+  Rollen Trainer, Co-Trainer, Torwarttrainer, Betreuer, Zeugwart, Jugendleitung; Spieler der Jugend erscheinen nie auf der Webseite
+- Neu im Hub: Trainingszeiten je Mannschaft und Gruppe (erscheinen auf der Webseite), Belegung von Saal, Sportplatz und Halle mit Miete, Kaution und Status
+- Supporter Karte heißt Dauerkarte (Eintritt zu allen Heimspielen der Ersten Herren)
+- Gruppen: Vorstand, Kassenwart, Spartenleitung, Trainer, Media Team, Helfer, Spieler, Wartung
+- Heimspieltag-Vorlagen für Fußball (Kasse, Kiosk, Grill, Linienrichter; Checkliste mit DFBnet, Platz abkreiden, Kabinen)
+- Impressum und Datenschutzerklärung für den Verein (Mitgliedschaft, Saalvermietung, NFV, Fotos von Kindern)
+- Briefpapier, Rechnungen, Mail-Signatur, Newsletter und Hub-Icons mit dem Vereinswappen
+- Entfernt: Livescore und die Anbindung an Highlight Desk (`/live/*`, `/public/live`, `/spielstand`, Token in den Einstellungen)
+- Prüfskript `tests/seiten_rendern.py`: rendert alle Seiten ohne Server gegen eine Testdatenbank

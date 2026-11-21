@@ -1,0 +1,30 @@
+{
+	email {$ACME_EMAIL}
+	default_sni {$DOMAIN}
+}
+
+{$DOMAIN} {
+	encode gzip
+
+	# Uploads und Backups, Umzugsdatei bis 2 GB (die Grenzen pro Anfrage prüft der Hub selbst)
+	request_body {
+		max_size 2GB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# Nur Hub und interne Adressen aus Suchmaschinen heraushalten, die öffentliche Webseite soll bei Google erscheinen
+	@intern path /hub* /api/* /static/* /media/* /login* /setup* /invite/* /passwort-* /auth/* /bestellen/* /teilen/* /spielerbogen* /kalender/* /supporter-karte/storno/*
+	header @intern X-Robots-Tag "noindex, nofollow"
+
+	reverse_proxy hub:8765
+}
+
+# Weitere Adressen (z. B. www.amisia-stern.de) leiten dauerhaft auf DOMAIN um. Mehrere mit Leerzeichen trennen.
+# Ohne Eintrag in der .env bleibt nur der lokale Platzhalter (kein Zertifikat aus dem Internet nötig).
+{$REDIRECT_DOMAINS:umleitung.localhost} {
+	redir https://{$DOMAIN}{uri} permanent
+}

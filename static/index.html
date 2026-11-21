@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wolthusen Hub</title>
+<link rel="icon" href="/static/icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+<meta name="theme-color" content="#15122B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Wolthusen Hub">
+<script>try{var t=localStorage.getItem('tmh_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header id="topbar"><button id="navToggle" aria-label="Menü öffnen">☰</button><img class="tb-logo" src="/static/logo.png" alt=""><b id="topTitle">Wolthusen Hub</b></header>
+<div id="navShade"></div>
+<aside id="sidebar">
+  <div class="brand">
+    <div class="brand-mark" id="brandMark"><img src="/static/logo.png" alt="SV Amisia Wolthusen"></div>
+    <div>
+      <div class="brand-name" id="brandName">SV Amisia Wolthusen</div>
+      <div class="brand-sub">Hub</div>
+    </div>
+    <span class="brand-ver" id="brandVer"></span>
+  </div>
+  <nav id="nav">
+    <a href="#/" data-page="dashboard">Übersicht</a>
+    <a href="#/profile" data-page="profile">Mein Profil</a>
+    <a href="#/postfach" data-page="postfach" data-area="postfach|ownmail">Postfach <span class="badge red nav-count" id="pfBadge" style="display:none"></span></a>
+    <div class="nav-group" data-group="medien">Medien</div>
+    <a href="#/posts" data-page="posts" data-area="medien">Postplan</a>
+    <a href="#/autopost" data-page="autopost" data-area="medien">Auto-Posting</a>
+    <a href="#/website" data-page="website" data-area="medien">Webseite</a>
+    <a href="#/news" data-page="news" data-area="medien">News</a>
+    <a href="#/media" data-page="media" data-area="medien">Mediathek</a>
+    <a href="#/shop" data-page="shop" data-area="medien">Fanshop</a>
+    <a href="#/newsletter" data-page="newsletter" data-area="medien">Newsletter</a>
+    <a href="#/magazine" data-page="magazine" data-area="medien">Stadionheft</a>
+    <a href="#/team" data-page="team" data-area="medien">Media Team</a>
+    <div class="nav-group" data-group="verein">Verein</div>
+    <a href="#/games" data-page="games" data-area="verein">Spielplan</a>
+    <a href="#/players" data-page="players" data-area="verein">Kader &amp; Trainer <span class="badge red nav-count" data-count="players" style="display:none"></span></a>
+    <a href="#/opponents" data-page="opponents" data-area="verein">Gegner</a>
+    <a href="#/trainings" data-page="trainings" data-area="verein">Trainingszeiten</a>
+    <a href="#/bookings" data-page="bookings" data-area="verein">Belegung Saal &amp; Platz</a>
+    <a href="#/sponsors" data-page="sponsors" data-area="verein">Sponsoren</a>
+    <a href="#/apparel" data-page="apparel" data-area="verein|finanzen|medien">Teamkleidung</a>
+    <a href="#/spieltag" data-page="spieltag" data-area="spieltag">Heimspieltag</a>
+    <div class="nav-group" data-group="mitglieder">Mitglieder</div>
+    <a href="#/members" data-page="members" data-area="mitglieder">Mitgliederliste</a>
+    <a href="#/contacts" data-page="contacts" data-area="mitglieder">Anfragen <span class="badge red nav-count" data-count="contacts" style="display:none"></span></a>
+    <div class="nav-group" data-group="finanzen">Finanzen</div>
+    <a href="#/finance" data-page="finance" data-area="finanzen">Buchungen</a>
+    <a href="#/cards" data-page="cards" data-area="finanzen">Dauerkarte <span class="badge red nav-count" data-count="cards" style="display:none"></span></a>
+    <div class="nav-group" data-group="admin">Verwaltung</div>
+    <a href="#/admin" data-page="admin" data-area="admin">Admin</a>
+    <a href="#/accounts" data-page="accounts" data-area="admin">Konten</a>
+    <a href="#/groups" data-page="groups" data-area="admin">Gruppen &amp; Rechte</a>
+    <a href="#/emails" data-page="emails" data-area="admin">E-Mails</a>
+    <a href="#/notes" data-page="notes" data-area="admin">Notizen</a>
+    <a href="#/settings" data-page="settings" data-area="admin">Einstellungen</a>
+    <a href="#/wartung" data-page="wartung" data-area="wartung">Wartungsmodus</a>
+    <a href="#/log" data-page="log" data-area="admin">Protokoll</a>
+  </nav>
+  <div class="sidebar-foot" id="sideFoot"></div>
+</aside>
+<header id="topnav" aria-label="Hauptmenü"></header>
+<main id="main">
+  <div id="view"></div>
+</main>
+<nav id="tabbar" aria-label="Schnellzugriff"></nav>
+<div id="modal" class="modal hidden"><div class="modal-box" id="modalBox"></div></div>
+<div id="toast" class="toast hidden"></div>
+<script src="/static/app.js"></script>
+<script src="/static/captions.js"></script>
+<script src="/static/qrcode.js"></script>
+<script src="/static/pages/01-grundlagen.js"></script>
+<script src="/static/pages/02-uebersicht.js"></script>
+<script src="/static/pages/03-postplan-autoposting.js"></script>
+<script src="/static/pages/04-mediathek.js"></script>
+<script src="/static/pages/05-spielplan.js"></script>
+<script src="/static/pages/06-news.js"></script>
+<script src="/static/pages/07-kader.js"></script>
+<script src="/static/pages/08-gegner-sponsoren-fanshop.js"></script>
+<script src="/static/pages/09-stadionheft.js"></script>
+<script src="/static/pages/10-teamkleidung.js"></script>
+<script src="/static/pages/11-anfragen-wartung-admin.js"></script>
+<script src="/static/pages/12-postfach.js"></script>
+<script src="/static/pages/13-emails-notizen-protokoll.js"></script>
+<script src="/static/pages/14-supporter-karte.js"></script>
+<script src="/static/pages/15-webseite.js"></script>
+<script src="/static/pages/16-einstellungen-post.js"></script>
+<script src="/static/pages/17-profil.js"></script>
+<script src="/static/pages/18-mitglieder-finanzen.js"></script>
+<script src="/static/pages/19-konten-gruppen.js"></script>
+<script src="/static/pages/20-spieltag.js"></script>
+<script src="/static/pages/21-newsletter.js"></script>
+<script src="/static/pages/99-start.js"></script>
+</body>
+</html>

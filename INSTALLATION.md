@@ -1,0 +1,194 @@
+# Wolthusen Hub auf dem VServer
+
+Der Hub läuft in Docker. Davor sitzt **Caddy**, der automatisch ein HTTPS-Zertifikat von Let's Encrypt holt und erneuert. Alle Seiten, Daten und Bilder sind nur nach dem Login erreichbar.
+
+## So läuft es
+
+```
+Dein PC (Claude Code)  --git push-->  GitHub (privates Repo)  --git pull-->  VServer (Docker)
+```
+
+Du entwickelst auf deinem PC, schiebst Änderungen nach GitHub, und auf dem Server holt `update.sh` den neuen Stand und startet den Hub neu. Die Daten (`data/`) und die Zugangsdaten (`.env`) liegen nur auf dem Server und sind nie im Repository.
+
+## Voraussetzungen
+
+- VServer mit **Debian 12** oder **Ubuntu 22.04/24.04**, ab 1 GB RAM
+- Eine **Domain oder Subdomain**, z. B. `hub.deinedomain.de`, mit einem **A-Eintrag** auf die IP des Servers (bei IPv6 zusätzlich AAAA)
+- Ports **80** und **443** offen (Firewall des Anbieters prüfen)
+- Ein **GitHub-Konto** (kostenlos reicht)
+
+## 1. Repository auf GitHub anlegen (einmalig, am PC)
+
+1. Auf github.com ein **neues, privates Repository** anlegen, z. B. `wolthusen-hub`. **Ohne** README, .gitignore oder Lizenz (das Repo muss leer sein).
+2. Den Ordner `WolthusenHub` an einen festen Platz legen, z. B. `C:\Projekte\WolthusenHub`, und dort in PowerShell:
+   ```
+   git remote add origin https://github.com/DEIN-NAME/wolthusen-webseite.git
+   git push -u origin main
+   ```
+   (Git für Windows: https://git-scm.com/download/win. Beim ersten Push fragt Git nach der GitHub-Anmeldung.)
+
+Ab jetzt arbeitest du in diesem Ordner, z. B. mit Claude Code.
+
+## 2. Server einrichten (einmalig)
+
+Auf dem Server anmelden (`ssh root@DEINE-SERVER-IP`), dann:
+
+1. Git installieren und einen **Deploy Key** erzeugen (ein Schlüssel, mit dem nur dieser Server dieses eine Repo lesen darf):
+   ```
+   apt update && apt install -y git
+   ssh-keygen -t ed25519 -f ~/.ssh/wolthusen_deploy -N "" -C "wolthusen-hub-server"
+   cat ~/.ssh/wolthusen_deploy.pub
+   ```
+2. Den angezeigten Schlüssel auf GitHub eintragen: im Repo **Settings > Deploy keys > Add deploy key**, Titel z. B. `VServer`, Haken bei *Allow write access* **nicht** setzen.
+3. Dem Server sagen, dass er den Schlüssel für GitHub nutzen soll:
+   ```
+   cat >> ~/.ssh/config <<'CFG'
+   Host github.com
+     IdentityFile ~/.ssh/wolthusen_deploy
+     IdentitiesOnly yes
+   CFG
+   ```
+4. Repository holen und einrichten:
+   ```
+   git clone git@github.com:DEIN-NAME/wolthusen-webseite.git /opt/WolthusenHub
+   cd /opt/WolthusenHub
+   sudo bash setup.sh
+   ```
+   `setup.sh` installiert Docker (falls nötig), fragt Domain, E-Mail, Benutzername und Passwort ab und startet den Hub.
+5. `https://hub.deinedomain.de` im Browser öffnen und anmelden. Beim allerersten Aufruf kann das Zertifikat ein paar Sekunden dauern.
+
+## 3. Updates
+
+Am PC: Änderungen committen und pushen (`git push`). Dann auf dem Server:
+```
+cd /opt/WolthusenHub
+sudo bash update.sh
+```
+`update.sh` legt vorher eine Sicherung der Datenbank an (`data/backups/vor-update-...db`), holt den neuen Stand, baut den Container neu und prüft, ob der Hub wieder antwortet.
+
+**Zurück auf eine ältere Version**, falls ein Update Probleme macht:
+```
+git log --oneline            # gewünschten Stand suchen
+git checkout <commit>        # dorthin wechseln
+docker compose up -d --build
+git checkout main            # später wieder auf den aktuellen Stand
+```
+Auf dem Server bitte keine Dateien von Hand ändern. `update.sh` bricht sonst ab, damit nichts überschrieben wird.
+
+## Webseite, Domain und HTTPS
+
+Ab Version 4.0 ist unter `/` die **öffentliche Vereinswebseite** erreichbar, der Hub liegt unter **`/hub`** (nur nach Login, im Footer der Webseite als „Mitgliederbereich“ verlinkt). Alte Lesezeichen wie `/#/posts` leiten automatisch nach `/hub#/posts`.
+Spielplan, Kader, Coaches und Sponsoren kommen live aus dem Hub, die übrigen Texte unter **Einstellungen > Webseite**. Was noch fehlt, steht in `PLATZHALTER.md`.
+
+**Deployment per Git** (auf dem Server im Ordner `/opt/WolthusenHub`):
+```
+sudo bash update.sh
+```
+Zum Testen eines Branches vor dem Zusammenführen (z. B. in der Test-VM):
+```
+git fetch && git checkout -b webseite origin/webseite   # einmalig
+sudo bash update.sh                                    # holt danach immer den neuesten Stand dieses Branches
+git checkout main                                      # zurück auf main, dann wieder update.sh
+```
+
+**Ohne Domain (jetzt):** In der `.env` steht `DOMAIN=<Server-IP>`. Caddy erzeugt dafür ein eigenes Zertifikat, Besucher sehen einmal eine Browser-Warnung, Logins sind trotzdem verschlüsselt.
+
+**Mit Domain (später, vorbereitet):**
+1. Beim Domain-Anbieter einen **A-Eintrag** (und bei IPv6 AAAA) auf die Server-IP setzen, z. B. `amisia-stern.de` und `www.amisia-stern.de`.
+2. Ports **80 und 443** in der Firewall des Anbieters offen lassen.
+3. In der `.env` nur `DOMAIN=amisia-stern.de` setzen (und `ACME_EMAIL` auf eine echte Adresse).
+4. `docker compose up -d` (oder `sudo bash update.sh`). Caddy holt das Let's-Encrypt-Zertifikat beim ersten Aufruf selbst und erneuert es automatisch.
+
+Alle Links (Mails, Passwort-Reset, Instagram-Bilder) ziehen aus `DOMAIN` mit. Nur unter Einstellungen > E-Mail-Versand und Auto-Posting > Einrichtung prüfen, ob dort noch eine alte Adresse von Hand eingetragen ist.
+
+## Serverumzug (alles mitnehmen)
+
+Den kompletten Fahrplan für den Wechsel von der Test-VM auf den VPS (Absichern, DNS, Einrichten, Prüfen) beschreibt **UMZUG-VPS.md**.
+
+Für den Umzug auf einen neuen Server gibt es unter **Einstellungen > Serverumzug** einen Komplett-Export. Er enthält **alles**: Vereinsdaten, Bilder und Videos, eigene Webseitenbilder, Rechnungen, Konten mit Passwörtern, Gruppen und Rechte, Facebook-Verbindung, E-Mail-Versand und das Protokoll.
+
+1. Auf dem alten Server: ein Passwort (mind. 10 Zeichen) festlegen und **Komplett-Export herunterladen**. Die Datei `WolthusenHub-Umzug-....wolthusen` ist damit verschlüsselt und lässt sich nur einmal herunterladen.
+2. Den neuen Server wie oben unter „Server einrichten“ aufsetzen (mit einem vorläufigen Admin).
+3. Auf dem neuen Server anmelden, unter **Einstellungen > Serverumzug** die Datei auswählen, das Passwort eingeben und **Alles ersetzen und importieren**.
+4. Danach mit den Zugangsdaten des **alten** Servers anmelden. Der vorläufige Admin existiert nicht mehr.
+
+Vor dem Import legt der neue Server eine Sicherung seines bisherigen Stands an. Ohne das Passwort lässt sich die Datei nicht öffnen, also Passwort und Datei getrennt aufbewahren. Ändert sich die Adresse (Domain), danach unter Auto-Posting und E-Mail-Versand die öffentliche Adresse anpassen.
+
+## Daten aus der lokalen Version übernehmen
+
+1. In der lokalen Version: **Einstellungen > Backup herunterladen (ZIP)**
+2. Im Hub auf dem Server: **Einstellungen > Backup einspielen** und das ZIP auswählen
+
+Alle Vereinsdaten und Bilder werden übernommen. Konten, Gruppen und Rechte des Servers bleiben erhalten.
+
+## Konten, Gruppen und Rechte
+
+Der Hub hat fünf Bereiche: **Medien**, **Verein**, **Mitglieder**, **Finanzen** und **Wartung**. Pro Bereich gibt es drei Stufen: *kein Zugriff*, *Lesen*, *Bearbeiten*.
+
+- **Gruppen** (Vorstand, Trainer, Media Team, Fotografen, Helfer, Spieler) legen fest, was ihre Mitglieder dürfen: **Verwaltung > Gruppen & Rechte**. Wer in mehreren Gruppen ist, bekommt pro Bereich das höchste Recht.
+- **Ausnahmen** für einzelne Personen setzt du beim Konto: **Verwaltung > Konten > Bearbeiten**.
+- **Admins** dürfen alles, auch Konten, Einstellungen und Backups.
+
+**Neuen Zugang anlegen:** Unter **Mitglieder** bei der Person auf **Zugang anlegen** klicken (oder unter **Konten > + Zugang**). Der Hub erzeugt einen **Einladungslink** (14 Tage gültig), den du z. B. per WhatsApp schickst. Damit legt die Person ihr Passwort selbst fest und kann danach ihr eigenes Profil pflegen.
+
+Passwort vergessen: Auf der Anmeldeseite **Passwort vergessen?** anklicken, Benutzername oder E-Mail eingeben, dann kommt ein Link per Mail (60 Minuten gültig). Voraussetzung: Der E-Mail-Versand ist eingerichtet und beim Konto (oder im verknüpften Mitgliedsprofil) ist eine E-Mail-Adresse hinterlegt. Sonst klickt der Admin beim Konto auf **Neuer Einladungslink**.
+
+Notfall (Admin-Passwort vergessen): in der `.env` `TMH_RESET_PASSWORD=1` und ein neues `TMH_ADMIN_PASSWORD` setzen, `docker compose up -d`, danach wieder auf `0` stellen. Oder auf der Kommandozeile:
+```
+docker compose exec hub python server.py users
+docker compose exec hub python server.py passwd NAME
+docker compose exec hub python server.py adduser NAME admin
+```
+
+## Sicherung
+
+- Der Hub legt jede Nacht eine Sicherung der Datenbank in `data/backups/` an (Standard: 14 Tage).
+- Bilder liegen in `data/media/`.
+- Komplette Sicherung vom Server holen (von Windows aus):
+  ```
+  scp -r root@DEINE-SERVER-IP:/opt/WolthusenHub/data ./WolthusenHub-Sicherung
+  ```
+- Zusätzlich jederzeit über **Einstellungen > Backup herunterladen**.
+
+Tipp: Viele VServer-Anbieter bieten zusätzlich Snapshots an. Die sind eine gute zweite Absicherung.
+
+## Wartung
+
+| Was | Befehl (im Ordner `/opt/WolthusenHub`) |
+|---|---|
+| Status | `docker compose ps` |
+| Logs ansehen | `docker compose logs -f hub` |
+| Neu starten | `docker compose restart hub` |
+| Stoppen | `docker compose down` |
+| Update einspielen | `sudo bash update.sh` |
+| Aktuelle Version | `git log -1 --oneline` |
+| Server-Updates | `apt update && apt upgrade` und gelegentlich `docker compose pull && docker compose up -d` |
+
+Beim Update bleiben `data/` und `.env` unverändert.
+
+## Spielerbogen
+
+Spieler, Coaches und Staff tragen sich über `/spielerbogen` selbst ein (Passwort und Freischaltung unter **Verein > Kader & Staff**). Die Eingänge prüft der Verein und übernimmt sie in den Kader. Die frühere Google-Tabelle gibt es nicht mehr.
+
+## Facebook und Instagram (Auto-Posting)
+
+Unter **Medien > Auto-Posting** verbindet ein Admin die Facebook-Seite. Dafür braucht es ein **Seiten-Token**, die Schritte stehen dort direkt auf der Seite (Meta-App anlegen, Token im Graph API Explorer erzeugen und verlängern, Seiten-Token aus `me/accounts` kopieren).
+
+- Facebook-Posts und -Storys funktionieren überall, auch auf einem Test-PC.
+- **Instagram** braucht ein Business- oder Creator-Konto, das mit der Facebook-Seite verknüpft ist, und die **öffentliche Adresse** des Hubs (z. B. `https://hub.deinedomain.de`), weil Instagram die Bilder selbst abholt.
+- Der Hub muss zur geplanten Zeit laufen. Storys werden bis zu 3 Stunden nachgeholt, freigegebene Posts bis zu 24 Stunden.
+- Das Token liegt nur in der Datenbank des Servers und ist nicht im Backup-Download enthalten.
+- Für **Statistik** und die Ansicht **Online** braucht das Token zusätzlich die Berechtigungen `read_insights` und `instagram_manage_insights`. Ein älteres Token dafür neu erzeugen und unter Einrichtung eintragen.
+
+## E-Mail-Benachrichtigungen
+
+Unter **Verwaltung > Einstellungen > E-Mail-Versand** trägt ein Admin das Postfach ein, über das der Hub Mails verschickt (Mailserver, Port, Benutzer, Passwort, Absender, Adresse des Hubs). Bei Gmail ein **App-Passwort** verwenden. Mit „Test-Mail senden“ prüfen.
+Danach wählt jeder unter **Mein Profil** selbst, welche Benachrichtigungen er bekommt.
+
+## Hub als App aufs Handy
+
+Auf dem Server mit Domain (https) den Hub im Handy-Browser öffnen und **Zum Startbildschirm hinzufügen** wählen (Android: Menü ⋮, iPhone: Teilen-Symbol). Der Hub öffnet sich dann wie eine App ohne Browserleiste.
+
+## Lokal testen (am PC)
+
+`Start.bat` startet den Hub lokal zum Ausprobieren (braucht Python 3). Beim ersten Start legst du im Browser einen Zugang an. Die lokalen Daten liegen im Ordner `data/` und werden nicht ins Repository übernommen.

@@ -1,0 +1,12 @@
+Sportliche Grüße
+
+{{NAME}}
+{{ROLLE}}
+
+E-Mail: info@amisia-stern.de
+Telefon: {{TELEFON}}
+Web: https://www.amisia-stern.de
+Instagram: https://instagram.com/amisiasternwolthusen
+
+SV Amisia Wolthusen e.V. | Sportverein in Emden-Wolthusen seit 1929
+Folkmar-Allena-Straße 13 | 26725 Emden

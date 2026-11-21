@@ -1,0 +1,9 @@
+[Unit]
+Description=Wolthusen Hub Update-Helfer: Versionen und verfügbare Updates prüfen
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+Environment=HOME=/root
+ExecStart=/usr/bin/python3 /usr/local/sbin/wolthusen-updater.py check
+TimeoutStartSec=30min
