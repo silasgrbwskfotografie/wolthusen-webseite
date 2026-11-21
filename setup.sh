@@ -31,7 +31,8 @@ fi
 # 2. .env anlegen
 if [ ! -f .env ]; then
   cp .env.example .env
-  read -rp "Domain für den Hub (z. B. hub.deinedomain.de): " DOMAIN
+  DOMAIN="${WOLTHUSEN_DOMAIN:-}"   # von deploy/installieren.sh vorgegeben
+  [ -n "$DOMAIN" ] || read -rp "Domain für den Hub (z. B. hub.deinedomain.de): " DOMAIN
   REDIR=""; MAIL=""
   if [ "$PROXY" = 0 ]; then   # hinter dem zentralen Proxy regelt dessen Caddyfile Zertifikat und Umleitungen
     read -rp "Weitere Adressen, die auf diese Domain umleiten (z. B. www.${DOMAIN}, mehrere mit Leerzeichen, leer = keine): " REDIR

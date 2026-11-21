@@ -36,6 +36,14 @@ Anmeldung per Passwort und als `root` ist abgeschaltet. Befehle mit `sudo` frage
 
 Adresse: **https://wolthusen.silasgrbwskfotografie.de** (DNS zeigt schon auf den VPS). Der zentrale Proxy unter `/opt/docker/proxy` läuft bereits.
 
+**Mit Skript (empfohlen):** Code holen (Schritt 2 unten, bzw. `git pull` falls schon geholt), dann
+```
+cd /opt/docker/apps/wolthusen-hub && sudo bash deploy/installieren.sh
+```
+Das Skript erledigt die Schritte 1 und 3 bis 6: prüft DNS und Proxy, richtet den Hub ein (fragt Admin und Passwort), hängt den Caddy-Block an,
+prüft die Caddyfile vor dem Neustart (bei Fehler automatisch zurück), testet Wolthusen und Tigers und fragt nach dem Update-Knopf.
+Es darf mehrfach laufen. Von Hand geht es so:
+
 1. **DNS prüfen** (muss `62.83.124.184` zeigen, die IP des VPS):
    ```
    getent hosts wolthusen.silasgrbwskfotografie.de
