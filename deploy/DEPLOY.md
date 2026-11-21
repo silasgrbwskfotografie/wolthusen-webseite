@@ -29,8 +29,49 @@ Internet ──> 80/443 ──> proxy-caddy ──(Netzwerk "proxy")──> wolt
 
 ## Anmelden
 
-Putty mit dem Benutzer `wolthusenhub` und der Schlüsseldatei `wolthusen_vps.ppk` (Putty: Connection > SSH > Auth > Credentials).
-Anmeldung per Passwort und als `root` ist abgeschaltet. Befehle mit `sudo` fragen nach dem Passwort von `wolthusenhub`.
+Der Wolthusen Hub läuft auf demselben VPS wie der Emden Tigers Hub: anmelden wie dort (Putty, Benutzer und Schlüssel des Tigers-VPS).
+Anmeldung per Passwort und als `root` ist abgeschaltet. Befehle mit `sudo` fragen nach dem Passwort dieses Benutzers.
+
+## Erstinstallation neben dem Tigers Hub
+
+Adresse: **https://wolthusen.silasgrbwskfotografie.de** (DNS zeigt schon auf den VPS). Der zentrale Proxy unter `/opt/docker/proxy` läuft bereits.
+
+1. **DNS prüfen** (muss die IP des VPS zeigen):
+   ```
+   getent hosts wolthusen.silasgrbwskfotografie.de
+   ```
+2. **Hub holen**:
+   ```
+   sudo mkdir -p /opt/docker/apps/wolthusen-hub && sudo chown $USER: /opt/docker/apps/wolthusen-hub
+   git clone https://github.com/silasgrbwskfotografie/wolthusen-webseite.git /opt/docker/apps/wolthusen-hub
+   cd /opt/docker/apps/wolthusen-hub
+   ```
+3. **Einrichten und starten** (fragt Domain, Admin-Name und Passwort; Domain: `wolthusen.silasgrbwskfotografie.de`):
+   ```
+   sudo bash setup.sh --proxy
+   ```
+   Der Container heißt `wolthusen-hub` und hängt im Netzwerk `proxy`. Der Tigers Hub wird dabei nicht angefasst.
+4. **Proxy erweitern** (Block anhängen, Domain eintragen, Caddy mit der neuen `.env` neu erstellen):
+   ```
+   sudo cp /opt/docker/proxy/Caddyfile /opt/docker/proxy/Caddyfile.vor-wolthusen
+   cat deploy/proxy/wolthusen.caddy | sudo tee -a /opt/docker/proxy/Caddyfile >/dev/null
+   echo "WOLTHUSEN_DOMAIN=wolthusen.silasgrbwskfotografie.de" | sudo tee -a /opt/docker/proxy/.env >/dev/null
+   cd /opt/docker/proxy && docker compose up -d && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+   ```
+   Falls Caddy meckert: `docker compose logs --tail 50 caddy`, zurück mit `sudo cp Caddyfile.vor-wolthusen Caddyfile` und erneutem `reload`.
+5. **Testen**:
+   ```
+   curl -s https://wolthusen.silasgrbwskfotografie.de/healthz
+   ```
+   Muss `{"ok": true, "version": "1.0"}` zeigen. Dann im Browser `https://wolthusen.silasgrbwskfotografie.de/login` mit dem Admin aus Schritt 3.
+   Kurz prüfen, dass die Tigers-Seite weiter erreichbar ist.
+6. **Optional, Update-Knopf im Hub** (Admin > Updates): `cd /opt/docker/apps/wolthusen-hub && sudo bash deploy/updater/install.sh`
+
+Hinweise:
+- Solange die Adresse eine Vorschau ist, hält der Caddy-Block die ganze Seite aus Google heraus (`X-Robots-Tag noindex`). Beim Wechsel auf die Vereinsdomain
+  `DOMAIN` in `/opt/docker/apps/wolthusen-hub/.env` und `WOLTHUSEN_DOMAIN` in `/opt/docker/proxy/.env` ändern, die Zeile `header X-Robots-Tag` ohne `@intern` löschen,
+  dann `docker compose up -d` im Hub-Ordner und Schritt 4 (ab `cd /opt/docker/proxy`).
+- Die Vorlage `deploy/proxy/Caddyfile` im Tigers-Repository kennt den Wolthusen-Block nicht. Wer die Caddyfile von dort neu kopiert, hängt `wolthusen.caddy` wieder an.
 
 ## Täglicher Betrieb
 
@@ -44,7 +85,7 @@ Anmeldung per Passwort und als `root` ist abgeschaltet. Befehle mit `sudo` frage
 | Proxy neu starten | `cd /opt/docker/proxy && docker compose restart` |
 | Caddyfile geändert, ohne Unterbrechung neu laden | `cd /opt/docker/proxy && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile` |
 | Caddy-Abbild aktualisieren | `cd /opt/docker/proxy && docker compose pull && docker compose up -d` |
-| Version des Hubs | `curl -s https://amisia-stern.de/healthz` |
+| Version des Hubs | `curl -s https://wolthusen.silasgrbwskfotografie.de/healthz` |
 | Firewall | `sudo ufw status verbose` |
 | Gesperrte IPs (SSH) | `sudo fail2ban-client status sshd` |
 | Neustart nötig nach Updates? | `ls /var/run/reboot-required` (wenn vorhanden: `sudo reboot`, alles startet von selbst) |
@@ -57,7 +98,7 @@ baut den Container neu und prüft, ob der Hub antwortet. Auf dem Server keine Da
 - Der Hub sichert jede Nacht die Datenbank nach `data/backups/` (14 Tage).
 - Zusätzlich regelmäßig auf den PC holen (PowerShell):
   ```
-  scp -i $env:USERPROFILE\.ssh\wolthusen_vps -r wolthusenhub@[IP des Servers]:/opt/docker/apps/wolthusen-hub/data/backups .\WolthusenHub-Sicherung
+  scp -i $env:USERPROFILE\.ssh\tigers_vps -r tigershub@[IP des Servers]:/opt/docker/apps/wolthusen-hub/data/backups .\WolthusenHub-Sicherung
   ```
   oder im Hub unter Verwaltung > Einstellungen > Backup herunterladen.
 - Wenn der Anbieter Snapshots anbietet: vor größeren Änderungen einen anlegen.
@@ -67,7 +108,7 @@ baut den Container neu und prüft, ob der Hub antwortet. Auf dem Server keine Da
 1. **DNS**: Beim Domain-Anbieter für die Domain von app2 einen A-Eintrag auf `[IP des Servers]` setzen. Prüfen: `getent hosts app2.domain.de` zeigt die IP.
 2. **Programm ablegen**:
    ```
-   sudo mkdir -p /opt/docker/apps/app2 && sudo chown wolthusenhub: /opt/docker/apps/app2
+   sudo mkdir -p /opt/docker/apps/app2 && sudo chown tigershub: /opt/docker/apps/app2
    cd /opt/docker/apps/app2
    git clone <Repository-Adresse> .      # oder Dateien per WinSCP hochladen
    ```
@@ -104,4 +145,4 @@ baut den Container neu und prüft, ob der Hub antwortet. Auf dem Server keine Da
 - **Admin-Passwort vergessen**: in `/opt/docker/apps/wolthusen-hub/.env` `TMH_RESET_PASSWORD=1` und `TMH_ADMIN_PASSWORD='neues-passwort'` setzen,
   `docker compose up -d`, danach beide Zeilen wieder entfernen bzw. auf `0` stellen.
 - **Zurück auf eine ältere Version des Hubs**: siehe INSTALLATION.md, Abschnitt Updates.
-- **SSH-Schlüssel verloren**: über die Web-Konsole des Anbieters (VNC/Notfallkonsole) anmelden und einen neuen Schlüssel in `~wolthusenhub/.ssh/authorized_keys` eintragen.
+- **SSH-Schlüssel verloren**: über die Web-Konsole des Anbieters (VNC/Notfallkonsole) anmelden und einen neuen Schlüssel in `~tigershub/.ssh/authorized_keys` eintragen.

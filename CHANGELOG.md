@@ -1,5 +1,10 @@
 # Änderungen
 
+## 1.1 (21.11.2026)
+- Installation auf dem VPS neben dem Emden Tigers Hub unter wolthusen.silasgrbwskfotografie.de: Anleitung in `deploy/DEPLOY.md`,
+  Caddy-Block `deploy/proxy/wolthusen.caddy` für den zentralen Proxy (ganze Seite vorerst noindex)
+- Bilder der Mail-Signatur kommen von der eigenen Adresse (`SITE_URL`), solange amisia-stern.de noch auf die alte Seite zeigt
+
 ## 1.0 (21.11.2026)
 Erste Fassung des Wolthusen Hub: Vereinswebseite und Vereinsverwaltung des SV Amisia Wolthusen in einem Server.
 Grundlage ist der Emden Tigers Hub 5.16 (der frühere Änderungsverlauf steht dort im Repository).

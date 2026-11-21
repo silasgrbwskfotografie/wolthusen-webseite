@@ -50,7 +50,7 @@ import urllib.error
 
 import website   # öffentliche Webseite (website.py, gleiche Ordnerebene)
 
-VERSION = "1.0"
+VERSION = "1.1"
 APP_NAME = "Wolthusen Hub"
 ENV = os.environ.get
 HOST = ENV("TMH_HOST", "127.0.0.1")
@@ -77,7 +77,7 @@ UPDATE_SOURCE = ENV("TMH_UPDATE_URL", "https://raw.githubusercontent.com/silasgr
 REPO_URL = "https://github.com/silasgrbwskfotografie/wolthusen-webseite"
 BEHIND_PROXY = ENV("COMPOSE_FILE", "") == "docker-compose.proxy.yml"   # Betrieb hinter /opt/docker/proxy (siehe deploy/DEPLOY.md)
 HOST_DIR = ENV("TMH_HOST_DIR") or ("/opt/docker/apps/wolthusen-hub" if BEHIND_PROXY else "/opt/WolthusenHub")
-SSH_USER = ENV("TMH_SSH_USER", "wolthusenhub")
+SSH_USER = ENV("TMH_SSH_USER", "tigershub")   # gleicher VPS wie der Tigers Hub
 
 # Mannschaften (players.team, games.team). Gleiche Liste in static/pages/01-grundlagen.js (TEAMS) und website.py.
 TEAMS = ("Erste Herren", "Zweite Herren", "Alte Herren", "D-Jugend", "E-Jugend", "F-Jugend", "G-Jugend")
@@ -3853,6 +3853,8 @@ def signature_parts(conn, uid, email="", preview=False):
             .replace("{{TELEFON_ZEILE}}", row).strip())
     if preview:
         html = html.replace(SIG_URL, "/signatur/")
+    elif SITE_URL:   # Bilder von der eigenen Domain laden, solange die Vereinsdomain noch woanders hinzeigt
+        html = html.replace(SIG_URL, SITE_URL + "/signatur/")
     lines = []
     for line in tpl_text.replace("\r\n", "\n").split("\n"):
         if "{{ROLLE}}" in line and not role and not line.replace("{{ROLLE}}", "").strip():

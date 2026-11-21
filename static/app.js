@@ -43,7 +43,7 @@ async function load(table, force = false) {
 function invalidate(...tables) { tables.forEach(t => delete App.cache[t]); }
 async function loadAll(...tables) { return Promise.all(tables.map(t => load(t))); }
 
-const APP_VERSION = '1.0';
+const APP_VERSION = '1.1';
 async function checkVersion() {
   try {
     const info = await api('');

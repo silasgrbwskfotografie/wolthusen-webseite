@@ -1,0 +1,21 @@
+# Wolthusen Hub im zentralen Caddy (/opt/docker/proxy/Caddyfile), neben dem Emden Tigers Hub.
+# Diesen Block UNTEN an /opt/docker/proxy/Caddyfile anhängen (nutzt das Snippet "sicherheit" von dort)
+# und in /opt/docker/proxy/.env eintragen:  WOLTHUSEN_DOMAIN=wolthusen.silasgrbwskfotografie.de
+# Danach:  cd /opt/docker/proxy && docker compose up -d && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+
+# ---------------------------------------------------------------- Wolthusen Hub (Webseite und Hub)
+{$WOLTHUSEN_DOMAIN} {
+	import sicherheit
+
+	request_body {
+		max_size 2GB
+	}
+
+	@intern path /hub* /api/* /static/* /media/* /login* /setup* /invite/* /passwort-* /auth/* /bestellen/* /teilen/* /spielerbogen* /kalender/* /supporter-karte/storno/*
+	header @intern X-Robots-Tag "noindex, nofollow"
+
+	# Vorschau-Adresse: ganze Seite aus Google heraushalten. Erst entfernen, wenn die endgültige Vereinsdomain darauf zeigt.
+	header X-Robots-Tag "noindex, nofollow"
+
+	reverse_proxy wolthusen-hub:8765
+}
