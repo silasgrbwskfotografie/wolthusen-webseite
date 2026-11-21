@@ -28,6 +28,7 @@ import hmac
 import secrets
 import shutil
 import time
+import csv
 import io
 import json
 import mimetypes
@@ -183,6 +184,7 @@ TABLES = {
         "notes": "TEXT",
         "team": "TEXT DEFAULT 'Erste Herren'",
         "stream_url": "TEXT",                   # Livestream-Link (öffentlich auf der Webseite)
+        "match_no": "TEXT",                     # Spielkennung aus dem DFBnet (Abgleich beim Import)
     },
     "sponsors": {
         "name": "TEXT",
@@ -4696,6 +4698,198 @@ def admin_info(force_update=False):
 AUDIT_SKIP = {"updated_at", "created_at", "public_token"}
 AUDIT_KEEP_DAYS = 400
 LABEL_KEYS = ("title", "name", "description", "holder", "section", "author", "date")
+
+
+# ---------------------------------------------------------------------------
+# DFBnet-Import: Vereinsspielplan als CSV oder Excel (.xlsx) aus dem DFBnet, abgleichen mit games.
+# Spalten werden über ihre Überschrift erkannt (Format ohne Beispieldatei geschätzt, bei Bedarf DFB_COLS ergänzen).
+# Kein Abruf von fussball.de (Nutzungsbedingungen des DFB, Ziffer 5 und 7.3).
+# ---------------------------------------------------------------------------
+DFB_COLS = {
+    "date": ("spieldatum", "datum"), "time": ("anstoß", "anstoss", "uhrzeit", "zeit", "beginn"),
+    "home": ("heimmannschaft", "heim"), "away": ("gastmannschaft", "gast"),
+    "match_no": ("spielkennung", "spielnummer", "spiel-nr", "sp.-nr", "spielnr", "kennung"),
+    "league": ("staffel", "spielklasse", "liga", "wettbewerb"), "age": ("mannschaftsart", "altersklasse"),
+    "kind": ("spielart", "art"), "location": ("spielstätte", "spielstaette", "sportstätte", "spielort", "platz"),
+    "result": ("ergebnis", "endstand"),
+}
+DFB_CLUB = "amisia"   # so erkennen wir die eigene Mannschaft in Heim/Gast
+DFB_AGE = (("alte herren", "Alte Herren"), ("ü3", "Alte Herren"), ("ü4", "Alte Herren"), ("ü5", "Alte Herren"),
+           ("d-jun", "D-Jugend"), ("e-jun", "E-Jugend"), ("f-jun", "F-Jugend"), ("g-jun", "G-Jugend"), ("bambini", "G-Jugend"),
+           ("u12", "D-Jugend"), ("u13", "D-Jugend"), ("u10", "E-Jugend"), ("u11", "E-Jugend"), ("u8", "F-Jugend"), ("u9", "F-Jugend"),
+           ("u6", "G-Jugend"), ("u7", "G-Jugend"))
+
+
+def dfb_rows(raw, filename=""):
+    """Tabelle aus CSV (UTF-8 oder Windows-1252, ; , oder Tab) oder .xlsx als Liste von Listen."""
+    if raw[:2] == b"PK":   # xlsx = ZIP mit XML
+        import zipfile
+        import xml.etree.ElementTree as ET
+        ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+        z = zipfile.ZipFile(io.BytesIO(raw))
+        shared = []
+        if "xl/sharedStrings.xml" in z.namelist():
+            for si in ET.fromstring(z.read("xl/sharedStrings.xml")).iter(ns + "si"):
+                shared.append("".join(t.text or "" for t in si.iter(ns + "t")))
+        sheet = sorted(n for n in z.namelist() if n.startswith("xl/worksheets/sheet"))[0]
+        rows = []
+        for r in ET.fromstring(z.read(sheet)).iter(ns + "row"):
+            row = {}
+            for c in r.iter(ns + "c"):
+                ref = re.match(r"[A-Z]+", c.get("r", "A"))[0]
+                col = 0
+                for ch in ref:
+                    col = col * 26 + ord(ch) - 64
+                v = c.find(ns + "v")
+                txt = v.text if v is not None else "".join(t.text or "" for t in c.iter(ns + "t"))
+                if c.get("t") == "s" and txt is not None:
+                    txt = shared[int(txt)]
+                row[col - 1] = (txt or "").strip()
+            rows.append([row.get(i, "") for i in range(max(row) + 1)] if row else [])
+        return rows
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("cp1252", "replace")
+    first = text.split("\n", 1)[0]
+    delim = max(";,\t", key=first.count)
+    return [[c.strip() for c in r] for r in csv.reader(io.StringIO(text), delimiter=delim)]
+
+
+def dfb_date(v):
+    """Datum aus 24.11.2026, 24.11.26, 2026-11-24 oder Excel-Seriennummer."""
+    v = (v or "").strip()
+    m = re.search(r"(\d{1,2})\.(\d{1,2})\.(\d{2,4})", v)
+    if m:
+        y = int(m[3])
+        y += 2000 if y < 100 else 0
+        return f"{y:04d}-{int(m[2]):02d}-{int(m[1]):02d}"
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}.*", v):
+        return v[:10]
+    if re.fullmatch(r"\d{5}(\.\d+)?", v):   # Excel zählt Tage ab 30.12.1899
+        return (datetime(1899, 12, 30) + timedelta(days=float(v))).strftime("%Y-%m-%d")
+    return ""
+
+
+def dfb_time(v):
+    v = (v or "").strip()
+    m = re.search(r"(\d{1,2}):(\d{2})", v)
+    if m:
+        return f"{int(m[1]):02d}:{m[2]}"
+    if re.fullmatch(r"0?\.\d+", v):   # Excel-Uhrzeit als Bruchteil eines Tages
+        mins = round(float(v) * 1440)
+        return f"{mins // 60:02d}:{mins % 60:02d}"
+    return ""
+
+
+def dfb_team(age, own_name, fallback):
+    t = f"{age} {own_name}".lower()
+    for key, team in DFB_AGE:
+        if key in t:
+            return team
+    if "herren" in t:
+        return "Zweite Herren" if re.search(r"\bii\b|\b2\b", own_name.lower()) else "Erste Herren"
+    if not age:
+        return "Zweite Herren" if re.search(r"\bii\b", own_name.lower()) else fallback
+    return fallback
+
+
+def dfb_parse(raw, filename="", fallback_team=None):
+    """Spiele aus der Datei: (spiele, hinweise)."""
+    rows = [r for r in dfb_rows(raw, filename) if any(r)]
+    hidx, cols = None, {}
+    for i, r in enumerate(rows[:15]):   # Überschriftenzeile suchen
+        low = [c.lower() for c in r]
+        found = {}
+        for key, names in DFB_COLS.items():
+            for j, c in enumerate(low):
+                if j not in found.values() and any(c == n or c.startswith(n) for n in names):
+                    found[key] = j
+                    break
+        if {"date", "home", "away"} <= found.keys():
+            hidx, cols = i, found
+            break
+    if hidx is None:
+        return [], ["Keine Überschriften Datum, Heim und Gast gefunden. Bitte den Vereinsspielplan aus dem DFBnet als CSV oder Excel exportieren."]
+    notes = ["Erkannte Spalten: " + ", ".join(f"{k} = {rows[hidx][j]}" for k, j in cols.items())]
+    games = []
+    fallback_team = fallback_team if fallback_team in TEAMS else MAIN_TEAM
+    for r in rows[hidx + 1:]:
+        def g(k):
+            return r[cols[k]].strip() if k in cols and cols[k] < len(r) else ""
+        date, home_n, away_n = dfb_date(g("date")), g("home"), g("away")
+        if not date or not (home_n or away_n):
+            continue
+        home = DFB_CLUB in home_n.lower()
+        if not home and DFB_CLUB not in away_n.lower():
+            notes.append(f"Übersprungen (kein Spiel von Amisia): {home_n} : {away_n}")
+            continue
+        score = re.search(r"(\d+)\s*:\s*(\d+)", g("result"))
+        us, them = (score[1], score[2]) if score and home else ((score[2], score[1]) if score else ("", ""))
+        kind_raw = (g("kind") + " " + g("league")).lower()
+        kind = ("Pokal" if "pokal" in kind_raw else "Freundschaftsspiel" if "freundschaft" in kind_raw
+                else "Hallenturnier" if "halle" in kind_raw else "Turnier" if "turnier" in kind_raw else "Liga")
+        games.append({"date": date, "time": dfb_time(g("time")), "team": dfb_team(g("age"), home_n if home else away_n, fallback_team),
+                      "home": 1 if home else 0, "opponent": (away_n if home else home_n)[:120], "league": g("league")[:120],
+                      "match_no": re.sub(r"\s+", "", g("match_no"))[:40], "location": g("location")[:200], "kind": kind,
+                      "score_us": us, "score_them": them,
+                      "cancelled": bool(re.search(r"abgesetzt|annulliert|ausgefallen", " ".join(r), re.I))})
+    return games, notes
+
+
+def dfb_plan(conn, games):
+    """Abgleich ohne zu speichern: Liste von {action: neu|ändern|gleich|abgesetzt, game, id, changes}."""
+    opps = {(o["name"] or "").strip().lower(): o["id"] for o in conn.execute("SELECT id, name FROM opponents")}
+    existing = [dict(r) for r in conn.execute("SELECT * FROM games")]
+    plan = []
+    for g in games:
+        opp_id = opps.get(g["opponent"].strip().lower())
+        cur = next((e for e in existing if g["match_no"] and (e.get("match_no") or "") == g["match_no"]), None)
+        if not cur:   # ohne Spielkennung: gleiches Datum, Mannschaft und Gegner
+            cur = next((e for e in existing if not e.get("match_no") and e["date"] == g["date"] and (e["team"] or MAIN_TEAM) == g["team"]
+                        and opp_id and e["opponent_id"] == opp_id), None)
+        if not cur:
+            plan.append({"action": "abgesetzt" if g["cancelled"] else "neu", "game": g, "id": None, "changes": {}})
+            continue
+        want = {"date": g["date"], "time": g["time"], "home": g["home"], "league": g["league"], "match_no": g["match_no"], "team": g["team"]}
+        if g["location"]:
+            want["location"] = g["location"]
+        if g["score_us"] and cur.get("score_us") in (None, ""):   # eingetragene Ergebnisse nie überschreiben
+            want.update(score_us=g["score_us"], score_them=g["score_them"])
+        changes = {k: [cur.get(k), v] for k, v in want.items() if v not in ("", None) and str("" if cur.get(k) is None else cur.get(k)) != str(v)}
+        action = "abgesetzt" if g["cancelled"] else ("ändern" if changes else "gleich")
+        plan.append({"action": action, "game": g, "id": cur["id"], "changes": changes})
+    return plan
+
+
+def dfb_apply(conn, plan, season, user):
+    """Plan übernehmen: neue Gegner und Spiele anlegen, Änderungen schreiben, Absagen in den Notizen vermerken."""
+    n = {"neu": 0, "ändern": 0, "abgesetzt": 0}
+    for item in plan:
+        g, act = item["game"], item["action"]
+        if act == "gleich" or (act == "abgesetzt" and not item["id"]):
+            continue
+        if item["id"]:
+            sets = {k: v[1] for k, v in item["changes"].items() if k in DFB_SYNC_FIELDS}
+            if act == "abgesetzt":
+                note = conn.execute("SELECT notes FROM games WHERE id=?", (item["id"],)).fetchone()["notes"] or ""
+                if "Abgesetzt (DFBnet)" not in note:
+                    sets["notes"] = ("Abgesetzt (DFBnet)\n" + note).strip()
+            if sets:
+                conn.execute(f"UPDATE games SET {', '.join(k + '=?' for k in sets)} WHERE id=?", (*sets.values(), item["id"]))
+            n[act] += 1
+            continue
+        row = conn.execute("SELECT id FROM opponents WHERE lower(trim(name))=?", (g["opponent"].strip().lower(),)).fetchone()
+        opp = row["id"] if row else conn.execute("INSERT INTO opponents (name) VALUES (?)", (g["opponent"],)).lastrowid
+        conn.execute("INSERT INTO games (season, date, time, team, home, opponent_id, kind, league, location, match_no, score_us, score_them) "
+                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", (season, g["date"], g["time"], g["team"], g["home"], opp, g["kind"], g["league"],
+                                                           g["location"], g["match_no"], g["score_us"] or None, g["score_them"] or None))
+        n["neu"] += 1
+    audit(conn, user, "importiert", "games", None, "Spielplan aus dem DFBnet", n)
+    return n
+
+
+DFB_SYNC_FIELDS = {"date", "time", "home", "league", "match_no", "team", "location", "score_us", "score_them"}   # nur diese Spalten schreibt der Import
 
 
 def audit_short(v):
