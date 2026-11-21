@@ -36,7 +36,7 @@ Anmeldung per Passwort und als `root` ist abgeschaltet. Befehle mit `sudo` frage
 
 Adresse: **https://wolthusen.silasgrbwskfotografie.de** (DNS zeigt schon auf den VPS). Der zentrale Proxy unter `/opt/docker/proxy` läuft bereits.
 
-1. **DNS prüfen** (muss die IP des VPS zeigen):
+1. **DNS prüfen** (muss `62.83.124.184` zeigen, die IP des VPS):
    ```
    getent hosts wolthusen.silasgrbwskfotografie.de
    ```
@@ -56,15 +56,23 @@ Adresse: **https://wolthusen.silasgrbwskfotografie.de** (DNS zeigt schon auf den
    sudo cp /opt/docker/proxy/Caddyfile /opt/docker/proxy/Caddyfile.vor-wolthusen
    cat deploy/proxy/wolthusen.caddy | sudo tee -a /opt/docker/proxy/Caddyfile >/dev/null
    echo "WOLTHUSEN_DOMAIN=wolthusen.silasgrbwskfotografie.de" | sudo tee -a /opt/docker/proxy/.env >/dev/null
-   cd /opt/docker/proxy && docker compose up -d && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+   cd /opt/docker/proxy
+   docker compose run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile
    ```
-   Falls Caddy meckert: `docker compose logs --tail 50 caddy`, zurück mit `sudo cp Caddyfile.vor-wolthusen Caddyfile` und erneutem `reload`.
+   Erst weitermachen, wenn `Valid configuration` erscheint. Ein Fehler in der Caddyfile legt sonst **beide** Seiten lahm (Tigers und Wolthusen).
+   `run --rm` prüft in einem Wegwerf-Container, der die neue `.env` schon kennt; ein `exec` im laufenden Caddy kennt `WOLTHUSEN_DOMAIN` noch nicht.
+   Bei einem Fehler: `sudo cp Caddyfile.vor-wolthusen Caddyfile` und die Zeile `WOLTHUSEN_DOMAIN` aus `.env` wieder löschen.
+   Dann übernehmen (emden-tigers.de ist dabei einige Sekunden weg):
+   ```
+   docker compose up -d && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+   ```
 5. **Testen**:
    ```
    curl -s https://wolthusen.silasgrbwskfotografie.de/healthz
+   curl -s https://emden-tigers.de/healthz
    ```
-   Muss `{"ok": true, "version": "1.0"}` zeigen. Dann im Browser `https://wolthusen.silasgrbwskfotografie.de/login` mit dem Admin aus Schritt 3.
-   Kurz prüfen, dass die Tigers-Seite weiter erreichbar ist.
+   Beide müssen `{"ok": true, ...}` zeigen (Wolthusen mit Version 1.1). Dann im Browser `https://wolthusen.silasgrbwskfotografie.de/login` mit dem Admin aus Schritt 3.
+   Kein Zertifikat? `docker compose logs --tail 50 caddy` im Proxy-Ordner.
 6. **Optional, Update-Knopf im Hub** (Admin > Updates): `cd /opt/docker/apps/wolthusen-hub && sudo bash deploy/updater/install.sh`
 
 Hinweise:

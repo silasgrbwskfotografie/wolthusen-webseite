@@ -1,7 +1,8 @@
 # Wolthusen Hub im zentralen Caddy (/opt/docker/proxy/Caddyfile), neben dem Emden Tigers Hub.
 # Diesen Block UNTEN an /opt/docker/proxy/Caddyfile anhängen (nutzt das Snippet "sicherheit" von dort)
 # und in /opt/docker/proxy/.env eintragen:  WOLTHUSEN_DOMAIN=wolthusen.silasgrbwskfotografie.de
-# Danach:  cd /opt/docker/proxy && docker compose up -d && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+# Eigener Block statt des Platzhalters app2, damit app2 für ein weiteres Projekt frei bleibt.
+# Danach erst prüfen, dann übernehmen (Reihenfolge und Rückweg: deploy/DEPLOY.md, Erstinstallation Schritt 4).
 
 # ---------------------------------------------------------------- Wolthusen Hub (Webseite und Hub)
 {$WOLTHUSEN_DOMAIN} {
