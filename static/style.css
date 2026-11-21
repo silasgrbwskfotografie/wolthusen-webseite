@@ -41,6 +41,8 @@
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
 body{font-family:var(--font);font-size:14px;color:var(--ink);background:var(--bg);display:flex}
+/* Wappen groß und blass im Hintergrund */
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.05;background:url(logo.png) center/min(70vw,680px) auto no-repeat}
 a{color:var(--red)}
 button,input,select,textarea{font:inherit;color:inherit}
 
