@@ -9,9 +9,17 @@ const SOCIAL_TARGETS = ['Facebook', 'Instagram', 'Facebook + Instagram'];
 const PUBLISH_STATE = { '': ['Auto: wartet', 'red'], 'läuft': ['Auto: läuft', 'warn'], gepostet: ['Auto: gepostet', 'ok'],
   teilweise: ['Auto: teilweise', 'warn'], fehler: ['Auto: Fehler', 'warn'], verpasst: ['Auto: verpasst', 'warn'] };
 const publishBadge = p => Number(p.auto_publish) || p.publish_state ? `<span class="badge ${PUBLISH_STATE[p.publish_state || '']?.[1] || ''}" title="${esc(p.publish_log || '')}">${PUBLISH_STATE[p.publish_state || '']?.[0] || esc(p.publish_state)}</span>` : '';
-const TEAMS = ['Erste Herren', 'Zweite Herren', 'Alte Herren', 'D-Jugend', 'E-Jugend', 'F-Jugend', 'G-Jugend'];   // gleiche Liste in server.py (TEAMS)
-const YOUTH_TEAMS = ['D-Jugend', 'E-Jugend', 'F-Jugend', 'G-Jugend'];   // wie YOUTH_TEAMS in server.py: Spieler nie auf der Webseite
-const teamOf = r => TEAMS.includes(r.team) ? r.team : TEAMS[0];
+// Mannschaften kommen aus dem Hub (Verein > Mannschaften, Tabelle teams), setTeams() füllt die Listen beim Start aus /api/me.
+// Die Arrays bleiben dieselben Objekte, damit Auswahllisten (options: TEAMS) immer den aktuellen Stand zeigen.
+const TEAMS = ['Erste Herren', 'Zweite Herren', 'Alte Herren', 'D-Jugend', 'E-Jugend', 'F-Jugend', 'G-Jugend'];
+const YOUTH_TEAMS = ['D-Jugend', 'E-Jugend', 'F-Jugend', 'G-Jugend'];   // Spieler nie auf der Webseite
+const SPORTS = ['Fußball', 'American Football', 'Turnen & Gymnastik', 'Sonstiges'];   // wie SPORTS in server.py
+function setTeams(list) {
+  if (!Array.isArray(list) || !list.length) return;
+  TEAMS.splice(0, TEAMS.length, ...list.map(t => t.name));
+  YOUTH_TEAMS.splice(0, YOUTH_TEAMS.length, ...list.filter(t => t.youth).map(t => t.name));
+}
+const teamOf = r => r.team || TEAMS[0];
 const teamBadge = r => teamOf(r) !== TEAMS[0] ? `<span class="badge red">${esc(teamOf(r))}</span>` : '';
 const teamBar = (cur, attr) => TEAMS.length > 1 ? ['Alle Mannschaften', ...TEAMS].map(t => `<button class="btn sm ${t === cur ? 'dark' : ''}" ${attr}="${esc(t)}">${esc(t)}</button>`).join('') : '';
 const SPONSOR_PACKAGES = ['Premiumpartner', 'Hauptsponsor', 'Trikotsponsor', 'Bandenwerbung', 'Spieltagssponsor', 'Jugendförderung', 'Partner', 'Förderer'];
@@ -27,7 +35,7 @@ const STAFF_ROLES = ['Trainer', 'Co-Trainer', 'Torwarttrainer', 'Betreuer', 'Tea
 const F = {
   players: [
     { key: 'kind', label: 'Art', type: 'select', options: ['Spieler', 'Coach', 'Staff'], hint: 'Coach = Trainer, Staff = Betreuer, Physio, Zeugwart.' },
-    { key: 'team', label: 'Mannschaft', type: 'select', options: TEAMS, default: TEAMS[0], hint: 'Spieler der Jugendmannschaften erscheinen nie auf der Webseite, nur Trainer und Betreuer.' },
+    { key: 'team', label: 'Mannschaft', type: 'select', options: TEAMS, get default() { return TEAMS[0]; }, hint: 'Spieler der Jugendmannschaften erscheinen nie auf der Webseite, nur Trainer und Betreuer.' },
     { key: 'active', label: 'Aktiv im Team', type: 'check', default: 1 },
     { key: 'first_name', label: 'Vorname' },
     { key: 'last_name', label: 'Nachname' },
@@ -47,8 +55,22 @@ const F = {
     { key: 'facts', label: 'Infos für Posts (Fußball-Geschichte, Funfacts)', type: 'textarea' },
     { key: 'notes', label: 'Interne Notizen', type: 'textarea', rows: 2 },
   ],
+  teams: [
+    { key: 'name', label: 'Name', placeholder: 'z. B. Erste Herren oder Fit for Fun' },
+    { key: 'sport', label: 'Sportart (Kategorie)', type: 'select', options: SPORTS, default: SPORTS[0] },
+    { key: 'youth', label: 'Jugendmannschaft (Minderjährige)', type: 'check', hint: 'Spieler erscheinen dann nie auf der Webseite, nur Trainer und Betreuer.' },
+    { key: 'active', label: 'Aktiv', type: 'check', default: 1, hint: 'Inaktive Mannschaften verschwinden von der Webseite und aus den Auswahllisten, ihre Daten bleiben.' },
+    { key: 'page', label: 'Eigene Seite auf der Webseite', type: 'check', default: 1, hint: 'Mit Titelbild, Text, Training, Trainern, Kader und Spielen unter /mannschaft/<Kurzname>.' },
+    { key: 'slug', label: 'Kurzname für die Adresse', placeholder: 'wird aus dem Namen gebildet', hint: 'Nur Kleinbuchstaben, Zahlen und Bindestriche. Ändern macht alte Links ungültig.' },
+    { key: 'lead', label: 'Untertitel', placeholder: 'z. B. Unser Aushängeschild', full: true },
+    { key: 'intro', label: 'Text auf der Seite', type: 'textarea', rows: 5, full: true, hint: 'Leerzeile = neuer Absatz.' },
+    { key: 'links', label: 'Links (fussball.de und andere)', type: 'textarea', rows: 3, full: true, placeholder: 'Herren I | https://www.fussball.de/mannschaft/...',
+      hint: 'Eine Zeile pro Link: Text | https://... Erscheint auf der Seite der Mannschaft.' },
+    { key: 'sort', label: 'Reihenfolge', type: 'number', default: 0, hint: 'Kleinere Zahl steht weiter oben (innerhalb der Kategorie).' },
+    { key: 'notes', label: 'Interne Notizen', type: 'textarea', rows: 2, full: true },
+  ],
   trainings: [
-    { key: 'team', label: 'Mannschaft / Gruppe', list: [...TEAMS, 'Fit for Fun', 'Gymnastikgruppe', 'Herren-Gymnastik'], default: TEAMS[0] },
+    { key: 'team', label: 'Mannschaft / Gruppe', type: 'select', options: TEAMS, get default() { return TEAMS[0]; }, hint: 'Neue Gruppen unter Verein > Mannschaften anlegen.' },
     { key: 'weekday', label: 'Wochentag', type: 'select', options: ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'] },
     { key: 'start', label: 'Beginn', type: 'time' },
     { key: 'end', label: 'Ende', type: 'time' },

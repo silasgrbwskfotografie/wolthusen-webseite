@@ -1,5 +1,14 @@
 # Änderungen
 
+## 1.2 (21.11.2026)
+- Neuer Reiter Verein > Mannschaften: links alle Mannschaften nach Sportart (Fußball, Fußball Jugend, American Football, Turnen & Gymnastik, Sonstiges),
+  rechts alles zu einer Mannschaft: Texte, Links, Titelbild der Seite, Trainingszeiten, Trainer und Betreuer, Kader, Spiele
+- Mannschaften frei anlegen, umbenennen (Spiele, Kader, Training und News ziehen mit), inaktiv stellen oder löschen (nur ohne Einträge)
+- Webseite: Mannschaftsseiten, Menü, Fußball-Seite und Sitemap kommen aus dem Hub; jede Mannschaft mit eigener Seite hat ihr eigenes Titelbild
+- Turngruppen und die Tigers sind jetzt Mannschaften (ohne eigene Seite vorbelegt, im Hub einschaltbar)
+- Wappen groß und blass im Hintergrund des Hubs
+- DFBnet-Import: Lesen und Abgleichen des Spielplans im Server (Oberfläche folgt)
+
 ## 1.1 (21.11.2026)
 - Installation auf dem VPS neben dem Emden Tigers Hub unter wolthusen.silasgrbwskfotografie.de: Anleitung in `deploy/DEPLOY.md`,
   Caddy-Block `deploy/proxy/wolthusen.caddy` für den zentralen Proxy (ganze Seite vorerst noindex)

@@ -61,7 +61,9 @@ Betreiber und Hauptnutzer: Silas (Admin). Sprache der Oberfläche und Texte: **D
   der Server lässt nur `ARTICLE_BLOCKS` mit ihren Feldern durch (`article_blocks`: Bilder nur aus der Mediathek, signiert; Knopf-Links geprüft), die Webseite baut sie mit `render_blocks`.
   Unter jedem Artikel `article_footer`: Probetraining-Kasten (`site_news_cta_text`) und Fotograf (`photo_by`, Link nur über `photo_link`: https oder @instagram).
   Text als Absätze über `paragraphs()`; mit `articles.format` = „HTML“ nur über `clean_html()` (Whitelist: p, h2 bis h4, strong, em, u, Listen, a mit geprüftem href, blockquote, br, hr; keine Attribute, Skripte, Bilder, Einbettungen). Neue Startseiten-Abschnitte setzt `web_layout` an ihren Standardplatz.
-  Mannschaften: `TEAMS` (Erste Herren, Zweite Herren, Alte Herren, D- bis G-Jugend), `YOUTH_TEAMS` und `MAIN_TEAM` in server.py, website.py (`TEAM_SLUG`, `FUSSBALL_DE`) und `static/pages/01-grundlagen.js` gleich halten. `players.team`, `games.team`.
+  Mannschaften: Tabelle `teams` (Hub > Verein > Mannschaften, `static/pages/22-mannschaften.js`, Kategorie = Sportart `SPORTS`, `youth`, `page`, Texte, Links),
+  `load_teams` setzt `TEAMS` (aktive), `YOUTH_TEAMS` (auch inaktive), `MAIN_TEAM` und über `website.set_teams` Seiten, Menü (`nav_items`), Bild-Slots `team-<id>` und Sitemap; im Hub `setTeams` aus `/api/me`.
+  Zuordnung über den Namen in `TEAM_REF_TABLES` (Umbenennen zieht mit, Löschen nur ohne Einträge), Titelbild über `/api/team-image/<id>` (Verein 2). Vorbelegung einmalig (`teams_seeded`). Test `tests/mannschaften.py`.
   Spieler der Jugendmannschaften (Minderjährige) gibt `public_team` nie aus, nur deren Trainer und Betreuer; nie über Spielerbogen oder Einladung in den Kader.
   Positionen Tor/Abwehr/Mittelfeld/Sturm (`POSITIONS`, `PLAYER_FORM_POSITIONS`), Rollen `COACH_ROLES` wie `STAFF_ROLES` in `01-grundlagen.js` und `INVITE_COACH_ROLES`.
   Trainingszeiten: Tabelle `trainings` (Bereich Verein, Hub `#/trainings`), öffentlich nur über `public_trainings` (ohne Notizen); `init_db` belegt die Turngruppen einmalig vor (`trainings_seeded`).

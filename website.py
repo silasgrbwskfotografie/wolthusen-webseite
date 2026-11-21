@@ -27,7 +27,8 @@ LOGO = "/web/assets/wappen.png"   # Vereinswappen 256 x 288 px (Original: web/as
 # Impressum und Datenschutz: eigene Texte aus dem Hub (Einstellungen site_impressum, site_datenschutz)
 LEGAL = {"impressum": ("Impressum", "site_impressum"), "datenschutz": ("Datenschutzerklärung", "site_datenschutz")}
 
-# Mannschaften wie TEAMS in server.py. Spieler der Jugend (Minderjährige) erscheinen nie auf der Webseite.
+# Mannschaften: Startwerte (und Vorbelegung der Tabelle teams). Im Betrieb setzt server.load_teams sie über set_teams() aus dem Hub.
+# Spieler der Jugend (Minderjährige) erscheinen nie auf der Webseite.
 TEAMS = ("Erste Herren", "Zweite Herren", "Alte Herren", "D-Jugend", "E-Jugend", "F-Jugend", "G-Jugend")
 YOUTH_TEAMS = {"D-Jugend", "E-Jugend", "F-Jugend", "G-Jugend"}
 TEAM_SLUG = {"Erste Herren": "erste-herren", "Zweite Herren": "zweite-herren", "Alte Herren": "alte-herren",
@@ -284,11 +285,11 @@ SOCIAL_ICONS = {   # eigene, einfache Symbole (nichts wird von Instagram, Facebo
 def nav_html(active):
     """Menü mit den Untermenüs Sportarten und Verein, dazu Dauerkarte und Fanshop aus dem Hub (Webseite > Menü)."""
     links = []
-    for i, item in enumerate(NAV):
+    for i, item in enumerate(nav_items()):
         if isinstance(item, dict):
             cls = "dd active" if active in item["keys"] else "dd"
-            cols = "".join(f'<div class="dd-col"><a class="dd-head" href="{h}">{e(head)}</a><ul>'
-                           + "".join(f'<li><a href="{x}">{e(t)}</a></li>' for t, x in subs) + "</ul></div>"
+            cols = "".join(f'<div class="dd-col"><a class="dd-head" href="{e(h)}">{e(head)}</a><ul>'
+                           + "".join(f'<li><a href="{e(x)}">{e(t)}</a></li>' for t, x in subs) + "</ul></div>"
                            for head, h, subs in item["groups"])
             links.append(f'<div class="{cls}"><button class="dd-btn" type="button" aria-expanded="false" aria-controls="dd{i}">{e(item["text"])}</button>'
                          f'<div class="dd-panel" id="dd{i}">{cols}</div></div>')
@@ -415,7 +416,75 @@ def section_head(eyebrow, title, more=""):
 # Bausteine: Spiele, Training, Personen
 # ---------------------------------------------------------------------------
 def team_of(x):
-    return x.get("team") if x.get("team") in TEAMS else TEAMS[0]
+    return x.get("team") if x.get("team") in TEAMS else (TEAMS[0] if TEAMS else "")
+
+
+def team_links(text):
+    """Links einer Mannschaft aus „Text | https://...“ (eine Zeile pro Link), nur https."""
+    out = []
+    for line in (text or "").splitlines():
+        label, _, url = line.rpartition("|") if "|" in line else ("", "", line)
+        url, label = url.strip(), label.strip()
+        if re.fullmatch(r"https://[^\s\"'<>]+", url):
+            out.append((label or "Mehr Infos", url))
+    return out
+
+
+TEAM_INFO = {}   # Name -> Zeile aus teams (nur aktive), gesetzt über set_teams
+PAGE_TEAMS = list(TEAMS)   # Mannschaften mit eigener Seite /mannschaft/<slug>
+
+
+def set_teams(rows):
+    """Aktive Mannschaften aus dem Hub übernehmen (Reihenfolge wie im Hub). Danach gelten Seiten, Menü, Bilder und Sitemap."""
+    global TEAMS, YOUTH_TEAMS, TEAM_SLUG, SLUG_TEAM, FUSSBALL_DE, TEAM_LEAD, TEAM_INFO, PAGE_TEAMS, IMAGE_SLOTS
+    rows = [dict(r) for r in rows]
+    TEAM_INFO = {r["name"]: r for r in rows}
+    TEAMS = [r["name"] for r in rows]
+    YOUTH_TEAMS = {r["name"] for r in rows if r.get("youth")}
+    TEAM_SLUG = {r["name"]: r["slug"] for r in rows}
+    PAGE_TEAMS = [r["name"] for r in rows if r.get("page")]
+    SLUG_TEAM = {r["slug"]: r["name"] for r in rows if r.get("page")}
+    FUSSBALL_DE = {r["name"]: team_links(r.get("links")) for r in rows if team_links(r.get("links"))}
+    TEAM_LEAD = {r["name"]: r.get("lead") or "" for r in rows}
+    slots = {k: v for k, v in IMAGE_SLOTS.items() if not k.startswith("team-")}
+    for r in rows:
+        if r.get("page"):
+            slots[f"team-{r['id']}"] = (f"Mannschaft {r['name']}", f"Titelbild der Seite /mannschaft/{r['slug']} (auch im Hub unter Verein > Mannschaften)")
+    IMAGE_SLOTS = slots   # neues dict statt Änderung: andere Threads lesen das alte weiter
+
+
+def team_sport(t):
+    return (TEAM_INFO.get(t) or {}).get("sport") or "Fußball"
+
+
+def team_topic(t):
+    """Anliegen im Kontaktformular für das Probetraining dieser Mannschaft."""
+    sport = team_sport(t)
+    return "jugend" if t in YOUTH_TEAMS else "turnen" if sport.startswith("Turnen") else "herren" if sport == "Fußball" else "frage"
+
+
+def football_teams(youth):
+    return [t for t in PAGE_TEAMS if team_sport(t) == "Fußball" and (t in YOUTH_TEAMS) == youth]
+
+
+def nav_items():
+    """Menü: Mannschaften der Sportarten aus dem Hub, der Rest fest (NAV)."""
+    out = []
+    for item in NAV:
+        if isinstance(item, dict) and item["text"] == "Sportarten":
+            groups = []
+            for head, href, subs in item["groups"]:
+                if head == "Fußball":
+                    subs = [(t, f"/mannschaft/{TEAM_SLUG[t]}") for t in football_teams(False)] + [x for x in subs if not x[1].startswith("/mannschaft/")]
+                elif head.startswith("Turnen"):
+                    own = [t for t in TEAMS if team_sport(t).startswith("Turnen")]
+                    subs = [(t, f"/mannschaft/{TEAM_SLUG[t]}" if t in PAGE_TEAMS else f"/turnen-gymnastik#{TEAM_SLUG[t]}") for t in own] or subs
+                elif head == "American Football":
+                    subs = [(t, f"/mannschaft/{TEAM_SLUG[t]}") for t in PAGE_TEAMS if team_sport(t) == "American Football"] + subs
+                groups.append((head, href, subs))
+            item = {**item, "groups": groups}
+        out.append(item)
+    return out
 
 
 def game_card(g, info):
@@ -537,8 +606,8 @@ def fill(body, info, data):
         "{{HERO_TEXT}}": lambda: text_or_ph(info.get("site_hero_text"), "Satz unter der Überschrift"),
         "{{UEBER_UNS}}": lambda: paragraphs(info.get("site_about")) or placeholder("Vereinsvorstellung"),
         "{{DYNAMISCH}}": lambda: start_sections(info, data),
-        "{{MANNSCHAFTEN}}": lambda: team_cards(TEAMS[:3]),
-        "{{JUGEND}}": lambda: team_cards(TEAMS[3:], dark=True),
+        "{{MANNSCHAFTEN}}": lambda: team_cards(football_teams(False)),
+        "{{JUGEND}}": lambda: team_cards(football_teams(True), dark=True),
         "{{SQUADS}}": squads_html,
         "{{PARTNER}}": lambda: sponsor_tiles(data.get("sponsors") or [], fallback=True),
         "{{PARTNER_TEXT}}": lambda: text_or_ph(info.get("site_sponsor_text"), "Text Partner werden"),
@@ -642,17 +711,25 @@ def page_team(info, slug, data):
     """Seite einer Mannschaft: Training, Trainer, Kader (nur Herren), Spiele, Ergebnisse, fussball.de."""
     t = SLUG_TEAM[slug]
     youth = t in YOUTH_TEAMS
+    row, sport = TEAM_INFO.get(t) or {}, team_sport(t)
     team, games = data.get("team") or [], data.get("games") or []
     coaches = coaches_of(team, t)
     players = [] if youth else [p for p in team if p["kind"] == "Spieler" and p.get("team") == t]
     nxt, done = upcoming(games, t, 6), played(games, t, 6)
-    fde = "".join(f'<a class="squad" href="{e(u)}" target="_blank" rel="noopener"><div><b>{e(label)}</b><span>Spielplan und Tabelle</span></div><i>fussball.de</i></a>'
-                  for label, u in FUSSBALL_DE.get(t, []))
-    topic = "jugend" if youth else "herren"
-    body = f"""<section class="page-hero">{picture("jugend" if youth else "herren", "100vw", "hero-img", eager=True)}{SHIELD}
-  <div class="hero-text"><p class="eyebrow">{"Kinder- und Jugendfußball" if youth else "Herrenfußball"}</p><h1>{e(t)}</h1>
+    fde = "".join(f'<a class="squad" href="{e(u)}" target="_blank" rel="noopener"><div><b>{e(label)}</b><span>{"Spielplan und Tabelle" if "fussball.de" in u else "Mehr Infos"}</span></div>'
+                  f'<i>{"fussball.de" if "fussball.de" in u else "Link"}</i></a>' for label, u in FUSSBALL_DE.get(t, []))
+    topic = team_topic(t)
+    has_games = sport in ("Fußball", "American Football") or any(team_of(g) == t for g in games)
+    slot = f"team-{row.get('id')}"
+    own = (image_meta().get(slot) or {}).get("src")
+    hero = slot if own else ("jugend" if youth else "turnen" if sport.startswith("Turnen") else "herren")
+    eyebrow = ("Kinder- und Jugendfußball" if youth else "Fußball") if sport == "Fußball" else sport
+    intro = paragraphs(row.get("intro"))
+    body = f"""<section class="page-hero">{picture(hero, "100vw", "hero-img", eager=True)}{SHIELD}
+  <div class="hero-text"><p class="eyebrow">{e(eyebrow)}</p><h1>{e(t)}</h1>
     <p class="lead">{e(TEAM_LEAD.get(t, ""))}</p>
-    <div class="btns"><a class="btn violet" href="/kontakt?anliegen={topic}#formular">Probetraining anfragen</a><a class="btn ghost" href="#spiele">Spiele</a></div></div></section>
+    <div class="btns"><a class="btn violet" href="/kontakt?anliegen={topic}#formular">Probetraining anfragen</a>{'<a class="btn ghost" href="#spiele">Spiele</a>' if has_games else ''}</div></div></section>
+{f'<section class="tone white"><div class="wrap narrow reveal">{intro}</div></section>' if intro else ''}
 <section><div class="wrap cards">
   <div class="card reveal" id="training"><p class="eyebrow">Training</p><h3>Trainingszeiten</h3>{training_list(trainings_of(t), "Trainingszeiten " + t)}
     <p class="small muted">{e(info.get("site_training_address") or "")}</p></div>
@@ -660,15 +737,15 @@ def page_team(info, slug, data):
     <p>{text_or_ph(info.get("site_trial_text"), "Hinweise zum Probetraining")}</p>
     <a class="btn violet" href="/kontakt?anliegen={topic}#formular">Probetraining anfragen</a></div>
 </div></section>
-<section class="tone white" id="trainer"><div class="wrap">{section_head("Trainer und Betreuer", "Ansprechpartner")}
-  {f'<div class="people">{"".join(person_card(p, p["role"] or p["kind"]) for p in coaches)}</div>' if coaches else f'<p>{placeholder("Trainer " + t)}</p>'}</div></section>
+{f"""<section class="tone white" id="trainer"><div class="wrap">{section_head("Trainer und Betreuer", "Ansprechpartner")}
+  {f'<div class="people">{"".join(person_card(p, p["role"] or p["kind"]) for p in coaches)}</div>' if coaches else f'<p>{placeholder("Trainer " + t)}</p>'}</div></section>""" if coaches or sport == "Fußball" else ''}
 {f'''<section id="kader"><div class="wrap">{section_head("Kader", "Saison " + (info.get("season") or ""))}{kader_html(players)}
   <p class="small muted">Fotos zeigen wir nur mit Einverständnis der Spieler.</p></div></section>''' if players else ''}
-<section class="tone dark" id="spiele"><div class="wrap">{section_head("Spielplan", "Nächste Spiele", f'<a class="more" href="/spielplan#{slug}">Ganzer Spielplan</a>')}
+{f"""<section class="tone dark" id="spiele"><div class="wrap">{section_head("Spielplan", "Nächste Spiele", f'<a class="more" href="/spielplan#{slug}">Ganzer Spielplan</a>')}
   {f'<div class="games">{"".join(game_card(g, info) for g in nxt)}</div>' if nxt else '<p class="muted">Die nächsten Spiele stehen hier, sobald sie feststehen.</p>'}
   {f'<h3 class="pos">Ergebnisse</h3><div class="games">{"".join(game_card(g, info) for g in done)}</div>' if done else ''}
-  {f'<div class="squads" style="margin-top:20px">{fde}</div>' if fde else ''}</div></section>"""
-    desc = f"{t} des SV Amisia Wolthusen: Training, Trainer und Spiele." if youth else seo_desc(info, "mannschaft", f"{t} des SV Amisia Wolthusen: Kader, Trainer, Training und Spiele.")
+  {f'<div class="squads" style="margin-top:20px">{fde}</div>' if fde else ''}</div></section>""" if has_games else (f'<section><div class="wrap"><div class="squads">{fde}</div></div></section>' if fde else '')}"""
+    desc = f"{t} des SV Amisia Wolthusen: Training, Trainer und Spiele." if youth or sport != "Fußball" else seo_desc(info, "mannschaft", f"{t} des SV Amisia Wolthusen: Kader, Trainer, Training und Spiele.")
     return layout("mannschaft/" + slug, t, desc, body, info, canonical=f"/mannschaft/{slug}", active="mannschaft")
 
 
@@ -1260,7 +1337,7 @@ def article_footer(info, a):
     """Unter jedem Artikel: Kasten zum Probetraining (Mannschaft des Artikels) und der Fotograf mit Link."""
     text = (info.get("site_news_cta_text") or "").strip()
     label = (info.get("site_news_cta_button") or "").strip() or "Probetraining anfragen"
-    topic = "jugend" if a.get("team") in YOUTH_TEAMS else "herren"
+    topic = team_topic(a["team"]) if a.get("team") in TEAMS else "herren"
     cta = f'<aside class="art-cta"><p>{lines(text)}</p><a class="btn dark" href="/kontakt?anliegen={topic}#formular">{e(label)}</a></aside>' if text else ""
     by = a.get("photo_by") or ""
     who = (f'<a href="{e(a["photo_url"])}" target="_blank" rel="noopener">{e(by)}</a>' if a.get("photo_url") else e(by)) if by else ""

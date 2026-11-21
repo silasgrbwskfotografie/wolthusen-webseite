@@ -51,7 +51,7 @@ import urllib.error
 
 import website   # öffentliche Webseite (website.py, gleiche Ordnerebene)
 
-VERSION = "1.1"
+VERSION = "1.2"
 APP_NAME = "Wolthusen Hub"
 ENV = os.environ.get
 HOST = ENV("TMH_HOST", "127.0.0.1")
@@ -80,10 +80,13 @@ BEHIND_PROXY = ENV("COMPOSE_FILE", "") == "docker-compose.proxy.yml"   # Betrieb
 HOST_DIR = ENV("TMH_HOST_DIR") or ("/opt/docker/apps/wolthusen-hub" if BEHIND_PROXY else "/opt/WolthusenHub")
 SSH_USER = ENV("TMH_SSH_USER", "tigershub")   # gleicher VPS wie der Tigers Hub
 
-# Mannschaften (players.team, games.team). Gleiche Liste in static/pages/01-grundlagen.js (TEAMS) und website.py.
-TEAMS = ("Erste Herren", "Zweite Herren", "Alte Herren", "D-Jugend", "E-Jugend", "F-Jugend", "G-Jugend")
-MAIN_TEAM = TEAMS[0]   # Standard für neue Spieler und Spiele
-YOUTH_TEAMS = {"D-Jugend", "E-Jugend", "F-Jugend", "G-Jugend"}   # Spieler (Minderjährige) erscheinen nie auf der Webseite
+# Mannschaften: Tabelle teams (Hub > Verein > Mannschaften). load_teams() setzt diese Werte beim Start und nach jeder Änderung,
+# die Zuordnung in games/players/trainings/articles/player_signups läuft über den Namen (Umbenennen zieht dort mit).
+SPORTS = ("Fußball", "American Football", "Turnen & Gymnastik", "Sonstiges")   # Kategorien im Hub, gleiche Liste in 01-grundlagen.js
+TEAMS = ["Erste Herren", "Zweite Herren", "Alte Herren", "D-Jugend", "E-Jugend", "F-Jugend", "G-Jugend"]   # aktive Mannschaften (Startwerte)
+MAIN_TEAM = TEAMS[0]   # Standard für neue Spieler und Spiele: erste aktive Fußball-Mannschaft ohne Jugend
+YOUTH_TEAMS = {"D-Jugend", "E-Jugend", "F-Jugend", "G-Jugend"}   # teams.youth=1, auch inaktive: Spieler (Minderjährige) nie auf der Webseite
+TEAM_REF_TABLES = ("games", "players", "player_signups", "articles", "trainings")   # Spalte team = Name der Mannschaft
 # Anliegen im Kontaktformular der Webseite (landet als Quelle in contact_requests), wie CONTACT_TOPICS in website.py
 CONTACT_TOPICS = ("Allgemeine Frage", "Mitgliedschaft", "Probetraining Herren", "Probetraining Jugend", "Turnen und Gymnastik", "Saal mieten", "Sponsoring", "Dauerkarte")
 
@@ -158,6 +161,19 @@ TABLES = {
         "created": "TEXT",
         "source": "TEXT",                       # Spielerbogen / Einladung
         "user_id": "INTEGER",                   # Konto aus der Einladung (beim Übernehmen mit der Person im Kader verknüpft)
+    },
+    "teams": {                                  # Mannschaften und Gruppen (Hub > Verein > Mannschaften), Kategorie = Sportart
+        "name": "TEXT",
+        "slug": "TEXT",                         # Adresse der Seite /mannschaft/<slug>
+        "sport": "TEXT DEFAULT 'Fußball'",      # SPORTS
+        "youth": "INTEGER DEFAULT 0",           # Jugend: Spieler nie öffentlich
+        "page": "INTEGER DEFAULT 1",            # eigene Seite auf der Webseite
+        "lead": "TEXT",                         # Untertitel
+        "intro": "TEXT",                        # Text auf der Seite
+        "links": "TEXT",                        # eine Zeile pro Link: Text | https://...
+        "sort": "INTEGER DEFAULT 0",
+        "active": "INTEGER DEFAULT 1",
+        "notes": "TEXT",
     },
     "opponents": {
         "name": "TEXT",
@@ -807,7 +823,7 @@ TABLE_AREA = {
     "gd_shifts": "spieltag", "gd_signups": "spieltag", "gd_checks": "spieltag",
     "posts": "medien", "media": "medien", "shop_products": "medien", "mail_lists": "postfach", "nl_groups": "medien",
     "media_team": "medien", "assignments": "medien", "magazines": "medien", "magazine_pages": "medien", "story_rules": "medien",
-    "games": "verein", "opponents": "verein", "players": "verein", "sponsors": "verein", "sponsor_packages": "verein",
+    "games": "verein", "teams": "verein", "opponents": "verein", "players": "verein", "sponsors": "verein", "sponsor_packages": "verein",
     "articles": "medien",
     "members": "mitglieder", "contact_requests": "mitglieder",
     "supporter_cards": "finanzen", "transactions": "finanzen", "card_orders": "finanzen",
@@ -822,7 +838,7 @@ TABLE_AREAS_ANY = {
     "apparel_orders": ("verein", "finanzen", "medien"),
 }
 # Nachschlage-Tabellen: lesbar für alle, die irgendeinen Bereich sehen (z. B. Spielplan für Captions)
-SHARED_READ = {"games", "opponents", "players", "sponsors", "media"}
+SHARED_READ = {"games", "teams", "opponents", "players", "sponsors", "media"}
 # Felder, die nur mit Finanz-Leserecht sichtbar sind
 FINANCE_FIELDS = {"sponsors": ("amount",), "sponsor_packages": ("price",)}
 # Felder, die nur mit Leserecht im eigenen Bereich sichtbar sind (nicht über SHARED_READ)
@@ -1006,6 +1022,19 @@ def init_db():
                             ("Herren-Gymnastik", "Dienstag", "20:00", "21:30", "Sporthalle Grundschule Wolthusen")):
                     conn.execute("INSERT INTO trainings (team, weekday, start, end, place, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)", (*row, now, now))
             set_setting(conn, "trainings_seeded", "1")
+        if get_setting(conn, "teams_seeded") != "1":
+            # Mannschaften einmalig aus den bisher festen Listen anlegen (Fußball, Turngruppen, Tigers), danach nur im Hub
+            if not conn.execute("SELECT 1 FROM teams LIMIT 1").fetchone():
+                now = datetime.now().isoformat(timespec="seconds")
+                seed = [(t, website.TEAM_SLUG[t], "Fußball", int(t in website.YOUTH_TEAMS), 1, website.TEAM_LEAD.get(t, ""),
+                         "\n".join(f"{label} | {url}" for label, url in website.FUSSBALL_DE.get(t, [])), i) for i, t in enumerate(website.TEAMS)]
+                seed += [(t, team_slug(t), "Turnen & Gymnastik", 0, 0, "", "", i) for i, t in enumerate(("Fit for Fun", "Gymnastikgruppe", "Herren-Gymnastik"))]
+                seed.append(("AFC Tigers Emden", "tigers", "American Football", 0, 0, "American Football in Emden", "", 0))
+                for row in seed:
+                    conn.execute("INSERT INTO teams (name, slug, sport, youth, page, lead, links, sort, active, created_at, updated_at) "
+                                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)", (*row, now, now))
+            set_setting(conn, "teams_seeded", "1")
+        load_teams(conn)
         if not conn.execute("SELECT 1 FROM settings WHERE key='pf_media_granted'").fetchone():
             # 4.27: Das Media Team bekommt neue Mails gemeldet und darf sie bearbeiten (einmalig, danach unter Gruppen & Rechte änderbar)
             g = conn.execute("SELECT id FROM groups WHERE lower(name)='media team'").fetchone()
@@ -2297,6 +2326,47 @@ def public_info():
         return {k: get_setting(conn, k) for k in PUBLIC_SETTINGS}
 
 
+def team_slug(text):
+    t = (text or "").lower()
+    for k, v in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        t = t.replace(k, v)
+    return re.sub(r"[^a-z0-9]+", "-", t).strip("-")[:60].strip("-") or "mannschaft"
+
+
+def load_teams(conn):
+    """Mannschaften aus der Tabelle teams in TEAMS, YOUTH_TEAMS, MAIN_TEAM und website.py übernehmen."""
+    global TEAMS, MAIN_TEAM, YOUTH_TEAMS
+    order = {s: i for i, s in enumerate(SPORTS)}
+    rows = sorted((dict(r) for r in conn.execute("SELECT * FROM teams")),
+                  key=lambda r: (order.get(r["sport"], 99), int(r["youth"] or 0), int(r["sort"] or 0), r["id"]))
+    active = [r for r in rows if r["active"]]
+    YOUTH_TEAMS = {r["name"] for r in rows if r["youth"]}
+    TEAMS = [r["name"] for r in active]
+    MAIN_TEAM = next((r["name"] for r in active if r["sport"] == "Fußball" and not r["youth"]), TEAMS[0] if TEAMS else "Erste Herren")
+    website.set_teams(active)
+    return rows
+
+
+def team_clean(conn, vals, rid=None):
+    """Prüft Name, Kurzname und Sportart einer Mannschaft (Anlegen und Ändern). Gibt einen Fehlertext zurück oder ""."""
+    old = conn.execute("SELECT * FROM teams WHERE id=?", (rid,)).fetchone() if rid else None
+    if "name" in vals or not old:
+        vals["name"] = re.sub(r"\s+", " ", str(vals.get("name") or "")).strip()[:60]
+        if not vals["name"]:
+            return "Bitte einen Namen eingeben."
+        if any((r["name"] or "").casefold() == vals["name"].casefold() for r in conn.execute("SELECT name FROM teams WHERE id IS NOT ?", (rid,))):   # SQLite lower() kennt keine Umlaute
+            return "Eine Mannschaft mit diesem Namen gibt es schon."
+    if "sport" in vals or not old:
+        vals["sport"] = vals.get("sport") if vals.get("sport") in SPORTS else SPORTS[0]
+    if "slug" in vals or not old:
+        slug = team_slug(vals.get("slug") or vals.get("name") or (old["name"] if old else ""))
+        base, n = slug, 2
+        while conn.execute("SELECT 1 FROM teams WHERE slug=? AND id IS NOT ?", (slug, rid)).fetchone():
+            slug, n = f"{base}-{n}", n + 1
+        vals["slug"] = slug
+    return ""
+
+
 def public_games():
     key = social_config()["share_key"]
     with db() as conn:
@@ -2308,8 +2378,11 @@ def public_games():
     for g in rows:
         o = opp.get(g["opponent_id"])
         played = g["score_us"] not in (None, "") and g["score_them"] not in (None, "")
+        team = g["team"] or MAIN_TEAM
+        if team not in TEAMS:   # Mannschaft inaktiv oder gelöscht: nicht auf der Webseite
+            continue
         out.append({
-            "id": g["id"], "team": g["team"] if g["team"] in TEAMS else MAIN_TEAM, "season": g["season"] or "", "date": g["date"], "time": g["time"] or "", "home": bool(g["home"]), "kind": g["kind"] or "",
+            "id": g["id"], "team": team, "season": g["season"] or "", "date": g["date"], "time": g["time"] or "", "home": bool(g["home"]), "kind": g["kind"] or "",
             "league": g["league"] or "", "location": g["location"] or (home_loc if g["home"] else ""),
             "opponent": {"name": o["name"] or "", "short": o["short"] or "", "city": o["city"] or "", "logo": public_image(o["logo"], key)} if o else None,
             "score_us": g["score_us"] if played else None, "score_them": g["score_them"] if played else None,
@@ -2386,8 +2459,8 @@ def public_team():
         rows = conn.execute("SELECT * FROM players WHERE active=1").fetchall()
     out = []
     for p in rows:
-        team = p["team"] if p["team"] in TEAMS else MAIN_TEAM
-        if team in YOUTH_TEAMS and (p["kind"] or "Spieler") == "Spieler":
+        team = p["team"] or MAIN_TEAM
+        if team not in TEAMS or (team in YOUTH_TEAMS and (p["kind"] or "Spieler") == "Spieler"):   # inaktiv/unbekannt oder Jugendspieler
             continue
         out.append({
             "team": team, "kind": p["kind"] or "Spieler", "first_name": p["first_name"] or "", "last_name": p["last_name"] or "",
@@ -2405,7 +2478,7 @@ def public_trainings():
         rows = conn.execute("SELECT * FROM trainings WHERE active=1").fetchall()
     out = [{"team": (r["team"] or "").strip(), "weekday": r["weekday"] if r["weekday"] in order else "", "start": (r["start"] or "")[:5],
             "end": (r["end"] or "")[:5], "place": (r["place"] or "").strip()[:80], "season": (r["season"] or "").strip()[:60]} for r in rows]
-    return sorted([t for t in out if t["team"] and t["weekday"]], key=lambda t: (order[t["weekday"]], t["start"]))
+    return sorted([t for t in out if t["team"] in TEAMS and t["weekday"]], key=lambda t: (order[t["weekday"]], t["start"]))
 
 
 def article_slug(a):
@@ -3151,7 +3224,7 @@ def website_overview(text_keys):
     if not [p for p in players if (p["kind"] or "Spieler") != "Spieler"]:
         add("hinweis", "Noch keine Trainer eingetragen.", "#/players")
     with db() as conn:
-        no_training = [t for t in TEAMS if not conn.execute("SELECT 1 FROM trainings WHERE team=? AND active=1", (t,)).fetchone()]
+        no_training = [t for t in website.PAGE_TEAMS if not conn.execute("SELECT 1 FROM trainings WHERE team=? AND active=1", (t,)).fetchone()]
     if no_training:
         add("hinweis", "Ohne Trainingszeiten: " + ", ".join(no_training), "#/trainings")
     if not games:
@@ -6346,7 +6419,8 @@ class Handler(BaseHTTPRequestHandler):
                             dash_layout = json.loads(urow["dash_layout"] or "null")
                         except (ValueError, TypeError):
                             dash_layout = None
-                    return self.send_json({**user, "perms": {**user["perms"], "ownmail": 2 if own_addr else 0}, "own_mail": own_addr, "mail_boxes": boxes, "tabbar": tabbar, "dash_layout": dash_layout,
+                    return self.send_json({**user, "teams": [{"name": t, "youth": t in YOUTH_TEAMS} for t in TEAMS],
+                                           "perms": {**user["perms"], "ownmail": 2 if own_addr else 0}, "own_mail": own_addr, "mail_boxes": boxes, "tabbar": tabbar, "dash_layout": dash_layout,
                                            "groups": groups, "areas": AREAS, "server": SERVER_MODE, "data": str(DATA) if admin else ""})
                 if method == "PUT" and len(p) > 1 and p[1] == "password":
                     data = self.read_json()
@@ -6564,6 +6638,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_push(method, p[1:], user)
             if name == "maintenance":
                 return self.api_maintenance(method, p[1:], user, can)
+            if name == "team-image" and len(p) == 2 and p[1].isdigit():
+                return self.api_team_image(method, int(p[1]), user, can)
             if name == "website":
                 return self.api_website(method, p[1:], user, can)
             if name == "newsletter":
@@ -7749,6 +7825,8 @@ class Handler(BaseHTTPRequestHandler):
                     vals.pop(f, None)
                 if table == "apparel":
                     vals["public_token"] = secrets.token_urlsafe(18)
+                if table == "teams" and (err := team_clean(conn, vals)):
+                    return self.send_json({"error": err}, 400)
                 vals["created_at"] = now
                 vals["updated_at"] = now
                 cols = ", ".join(f'"{k}"' for k in vals)
@@ -7756,6 +7834,8 @@ class Handler(BaseHTTPRequestHandler):
                 cur = conn.execute(f'INSERT INTO "{table}" ({cols}) VALUES ({qs})', list(vals.values()))
                 if table == "supporter_cards":   # bezahlt ohne Nummer: nächste Kartennummer
                     assign_card_numbers(conn)
+                if table == "teams":
+                    load_teams(conn)
                 r = conn.execute(f'SELECT * FROM "{table}" WHERE id=?', (cur.lastrowid,)).fetchone()
                 audit(conn, getattr(self, "user", None), "neu", table, cur.lastrowid, audit_label(r),
                       {k: audit_short(v) for k, v in vals.items() if k not in AUDIT_SKIP and v not in (None, "")})
@@ -7770,10 +7850,17 @@ class Handler(BaseHTTPRequestHandler):
                 vals.pop("public_token", None)   # neuer Link nur über /api/apparel/<id>/new-link
                 vals["updated_at"] = now
                 old = conn.execute(f'SELECT * FROM "{table}" WHERE id=?', (rid,)).fetchone()
+                if table == "teams" and (err := team_clean(conn, vals, rid)):
+                    return self.send_json({"error": err}, 400)
                 if table == "apparel_orders" and old and old["booked_tx"] and "paid" in vals and int(vals["paid"] or 0) != int(old["paid"] or 0):
                     return self.send_json({"error": "Diese Bestellung ist schon in den Finanzen gebucht, „bezahlt“ lässt sich nicht mehr ändern."}, 400)
                 sets = ", ".join(f'"{k}"=?' for k in vals)
                 conn.execute(f'UPDATE "{table}" SET {sets} WHERE id=?', list(vals.values()) + [rid])
+                if table == "teams" and old:
+                    if vals.get("name") and vals["name"] != old["name"]:   # Umbenennen: Spiele, Kader, Training, News ziehen mit
+                        for t in TEAM_REF_TABLES:
+                            conn.execute(f'UPDATE "{t}" SET team=? WHERE team=?', (vals["name"], old["name"]))
+                    load_teams(conn)
                 if table == "supporter_cards":   # bezahlt ohne Nummer: nächste Kartennummer
                     assign_card_numbers(conn)
                     if "number" in vals:
@@ -7788,6 +7875,15 @@ class Handler(BaseHTTPRequestHandler):
 
             if method == "DELETE" and rid is not None:
                 old = conn.execute(f'SELECT * FROM "{table}" WHERE id=?', (rid,)).fetchone()
+                if table == "teams" and old:
+                    used = [t for t in TEAM_REF_TABLES if conn.execute(f'SELECT 1 FROM "{t}" WHERE team=? LIMIT 1', (old["name"],)).fetchone()]
+                    if used:
+                        return self.send_json({"error": "Diese Mannschaft hat noch Einträge (" + ", ".join(used) + "). "
+                                               "Bitte auf inaktiv stellen oder die Einträge erst einer anderen Mannschaft zuordnen."}, 409)
+                    imgs = web_images(conn)
+                    for f in ((imgs.pop(f"team-{rid}", None) or {}).get("files") or {}).values():
+                        (SITE_DIR / str(f)).unlink(missing_ok=True)
+                    set_setting(conn, "web_images", json.dumps(imgs))
                 if old:
                     audit(conn, getattr(self, "user", None), "gelöscht", table, rid, audit_label(old),
                           {k: audit_short(v) for k, v in row_dict(old).items() if k not in AUDIT_SKIP and v not in (None, "")})
@@ -7805,12 +7901,35 @@ class Handler(BaseHTTPRequestHandler):
                     conn.execute("DELETE FROM magazine_pages WHERE magazine_id=?", (rid,))
                 if table == "apparel":
                     conn.execute("DELETE FROM apparel_orders WHERE apparel_id=?", (rid,))
+                if table == "teams":
+                    load_teams(conn)
                 return self.send_json({"ok": True})
 
         return self.send_json({"error": "Methode nicht erlaubt"}, 405)
 
     # -- Webseite im Hub (Bereich Medien) ---------------------------------
     # -- Wartungsmodus der Webseite (/api/maintenance): Lesen mit Wartung 1, Schalten und Texte mit Wartung 2 --
+    def api_team_image(self, method, tid, user, can):
+        """Titelbild einer Mannschaftsseite (Slot team-<id>): ansehen mit Verein 1, ändern mit Verein 2."""
+        if not can("verein", 1):
+            return self.deny()
+        slot = f"team-{tid}"
+
+        def info():
+            own = public_site()["images"].get(slot) or {}
+            src = own.get("src") or {}
+            with db() as conn:
+                alt = (web_images(conn).get(slot) or {}).get("alt") or ""
+            return self.send_json({"own": bool(src), "preview": (src.get(960) or src[min(src)]) if src else "", "alt": alt,
+                                   "page": slot in website.IMAGE_SLOTS})
+        if method == "GET":
+            return info()
+        if not can("verein", 2):
+            return self.deny("Zum Ändern braucht es Schreibrecht im Bereich Verein.")
+        if slot not in website.IMAGE_SLOTS:
+            return self.send_json({"error": "Nur Mannschaften mit eigener Seite (aktiv) haben ein Titelbild."}, 400)
+        return self.site_image(method, slot, user, info)
+
     def api_maintenance(self, method, p, user, can):
         if not can("wartung", 1):
             return self.deny()

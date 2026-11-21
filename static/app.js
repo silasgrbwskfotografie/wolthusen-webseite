@@ -43,7 +43,7 @@ async function load(table, force = false) {
 function invalidate(...tables) { tables.forEach(t => delete App.cache[t]); }
 async function loadAll(...tables) { return Promise.all(tables.map(t => load(t))); }
 
-const APP_VERSION = '1.1';
+const APP_VERSION = '1.2';
 async function checkVersion() {
   try {
     const info = await api('');
@@ -60,7 +60,7 @@ async function checkVersion() {
 const APPAREL_AREAS = 'verein|finanzen|medien';
 const PAGE_AREA = {
   posts: 'medien', autopost: 'medien', shop: 'medien', newsletter: 'medien', media: 'medien', team: 'medien', magazine: 'medien', website: 'medien', news: 'medien',
-  games: 'verein', players: 'verein', opponents: 'verein', trainings: 'verein', bookings: 'verein', sponsors: 'verein', apparel: APPAREL_AREAS,
+  games: 'verein', teams: 'verein', players: 'verein', opponents: 'verein', trainings: 'verein', bookings: 'verein', sponsors: 'verein', apparel: APPAREL_AREAS,
   members: 'mitglieder', contacts: 'mitglieder', finance: 'finanzen', cards: 'finanzen',
   spieltag: 'spieltag', accounts: 'admin', groups: 'admin', emails: 'admin', notes: 'admin', settings: 'admin', log: 'admin', admin: 'admin', wartung: 'wartung', postfach: 'postfach|ownmail',
 };
@@ -213,7 +213,7 @@ const TAB_ICONS = {
 // Symbole für Seiten aus dem Menü, die man sich in die eigene Tab-Leiste legen kann (sonst ein Punkt)
 const PAGE_ICONS = { dashboard: 'home', postfach: 'mail', newsletter: 'send', games: 'cal', posts: 'post', players: 'team', media: 'img', members: 'team', finance: 'euro', profile: 'user',
   website: 'web', news: 'news', shop: 'shop', cards: 'card', sponsors: 'star', notes: 'note', settings: 'gear', admin: 'tool', contacts: 'inbox', autopost: 'send', team: 'team',
-  spieltag: 'flag', magazine: 'book', opponents: 'shield', trainings: 'cal', bookings: 'cal', apparel: 'shirt', accounts: 'user', groups: 'key', emails: 'mail', wartung: 'tool', log: 'list' };
+  spieltag: 'flag', magazine: 'book', opponents: 'shield', teams: 'team', trainings: 'cal', bookings: 'cal', apparel: 'shirt', accounts: 'user', groups: 'key', emails: 'mail', wartung: 'tool', log: 'list' };
 const navText = a => [...a.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim();   // Name ohne Symbol und Zahl
 /* Symbol vor jeden Menüpunkt (einmalig) */
 function decorateNav() {
@@ -615,7 +615,7 @@ async function editRecord(table, fields, record = {}, opts = {}) {
     };
     if (!isNew) $('#recDel').onclick = async () => {
       if (!confirmBox('Wirklich löschen?')) return;
-      await api(`${table}/${record.id}`, 'DELETE');
+      try { await api(`${table}/${record.id}`, 'DELETE'); } catch (e) { alert('Löschen nicht möglich: ' + e.message); return; }
       invalidate(table, 'assignments'); closeModal(); toast('Gelöscht'); resolve({ deleted: true });
     };
   });

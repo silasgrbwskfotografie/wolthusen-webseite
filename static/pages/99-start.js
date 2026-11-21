@@ -2,6 +2,7 @@
 (async () => {
   await loadSettings();
   try { App.me = await api('me'); } catch { return; }
+  setTeams(App.me.teams);
   renderSideFoot();
   applyPermissions();
   checkVersion();

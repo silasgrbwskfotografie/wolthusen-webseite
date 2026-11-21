@@ -345,6 +345,17 @@ body[data-ro] #wn_save, body[data-ro] #wn_off { display: none !important; }
 .web-imgs { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 .web-img-pic { aspect-ratio: 16/9; background: #111; border-radius: 6px; overflow: hidden; margin-bottom: 10px; }
 .web-img-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Verein > Mannschaften: links die Liste nach Sportart, rechts eine Mannschaft */
+.team-layout { display: grid; grid-template-columns: 240px 1fr; gap: 18px; align-items: start; }
+.team-nav { position: sticky; top: 16px; padding: 10px 12px; }
+.team-nav h4 { margin: 12px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); }
+.team-nav h4:first-child { margin-top: 2px; }
+.team-nav a { display: block; padding: 6px 10px; border-radius: 8px; color: var(--ink); text-decoration: none; font-weight: 600; }
+.team-nav a:hover { background: var(--hover); }
+.team-nav a.on { background: var(--red-soft); color: var(--red-text); }
+.team-nav a.off { opacity: .6; }
+.team-main { min-width: 0; }
+@media (max-width: 900px) { .team-layout { grid-template-columns: 1fr; } .team-nav { position: static; } }
 .web-img h3 { margin: 0 0 4px; font-size: 16px; }
 .web-img textarea { width: 100%; margin-top: 4px; }
 /* News: Block-Editor */
