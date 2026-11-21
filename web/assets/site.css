@@ -17,9 +17,6 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: calc(var(--headh) + 12px); }
 body { margin: 0; font: 17px/1.6 var(--text); color: var(--ink); background: var(--bg); padding-top: var(--headh); }
-/* Wappen groß und blass im Hintergrund (liegt hinter allen Abschnitten, Flächen mit eigener Farbe decken es ab) */
-body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .06;
-  background: url(/web/assets/logo.webp) center / min(80vw, 760px) auto no-repeat; }
 img { max-width: 100%; height: auto; display: block; }
 a { color: var(--violet); }
 h1, h2, h3, h4 { font-family: var(--head); font-weight: 400; text-transform: uppercase; letter-spacing: .5px; line-height: 1.02; margin: 0 0 .4em; text-wrap: balance; }
