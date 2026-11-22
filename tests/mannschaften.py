@@ -73,4 +73,17 @@ data = {"info": server.public_info(), "games": [], "team": [], "sponsors": [], "
         "site": server.public_site(), "base": "https://x.de", "articles": [], "nav": server.public_nav()}
 html = website.render("mannschaft/fit-for-fun", data, None)
 assert "Bewegung für alle." in html and "Turnen &amp; Gymnastik" in html and 'href="/mannschaft/fit-for-fun"' in html
+# Spielplan „nur fussball.de-Link“: Jugend und Alte Herren vorbelegt, ihre Spiele nicht öffentlich, Seite zeigt den Link
+with server.db() as conn:
+    sched = {r["name"]: r["schedule"] for r in conn.execute("SELECT name, schedule FROM teams")}
+    conn.execute("INSERT INTO games (date, team, home) VALUES ('2099-01-01', 'E-Jugend', 1)")
+    conn.execute("INSERT INTO games (date, team, home) VALUES ('2099-01-02', 'Erste Herren', 1)")
+assert sched["E-Jugend"] == sched["Alte Herren"] == "nur fussball.de-Link" and sched["Erste Herren"] == "aus dem Hub", sched
+assert [g["team"] for g in server.public_games()] == ["Erste Herren"]
+data.update(games=server.public_games())
+html = website.render("mannschaft/e-jugend", data, None)
+assert "stehen aktuell bei fussball.de" in html and "fussball.de/mannschaft" in html and "Die nächsten Spiele stehen hier" not in html
+assert "Weitere Mannschaften" in website.render("spielplan", data, None)
+st, t3 = call("PUT", rows["Erste Herren"]["id"], {"schedule": "Quatsch"})
+assert t3["schedule"] == "aus dem Hub", t3
 print("Mannschaften-Test OK")

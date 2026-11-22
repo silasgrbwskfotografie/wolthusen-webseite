@@ -719,7 +719,8 @@ def page_team(info, slug, data):
     fde = "".join(f'<a class="squad" href="{e(u)}" target="_blank" rel="noopener"><div><b>{e(label)}</b><span>{"Spielplan und Tabelle" if "fussball.de" in u else "Mehr Infos"}</span></div>'
                   f'<i>{"fussball.de" if "fussball.de" in u else "Link"}</i></a>' for label, u in FUSSBALL_DE.get(t, []))
     topic = team_topic(t)
-    has_games = sport in ("Fußball", "American Football") or any(team_of(g) == t for g in games)
+    link_only = row.get("schedule") == "nur fussball.de-Link"   # Spielplan nur auf fussball.de (Hub > Mannschaften)
+    has_games = not link_only and (sport in ("Fußball", "American Football") or any(team_of(g) == t for g in games))
     slot = f"team-{row.get('id')}"
     own = (image_meta().get(slot) or {}).get("src")
     hero = slot if own else ("jugend" if youth else "turnen" if sport.startswith("Turnen") else "herren")
@@ -728,7 +729,7 @@ def page_team(info, slug, data):
     body = f"""<section class="page-hero">{picture(hero, "100vw", "hero-img", eager=True)}{SHIELD}
   <div class="hero-text"><p class="eyebrow">{e(eyebrow)}</p><h1>{e(t)}</h1>
     <p class="lead">{e(TEAM_LEAD.get(t, ""))}</p>
-    <div class="btns"><a class="btn violet" href="/kontakt?anliegen={topic}#formular">Probetraining anfragen</a>{'<a class="btn ghost" href="#spiele">Spiele</a>' if has_games else ''}</div></div></section>
+    <div class="btns"><a class="btn violet" href="/kontakt?anliegen={topic}#formular">Probetraining anfragen</a>{'<a class="btn ghost" href="#spiele">Spiele</a>' if has_games or link_only else ''}</div></div></section>
 {f'<section class="tone white"><div class="wrap narrow reveal">{intro}</div></section>' if intro else ''}
 <section><div class="wrap cards">
   <div class="card reveal" id="training"><p class="eyebrow">Training</p><h3>Trainingszeiten</h3>{training_list(trainings_of(t), "Trainingszeiten " + t)}
@@ -744,7 +745,11 @@ def page_team(info, slug, data):
 {f"""<section class="tone dark" id="spiele"><div class="wrap">{section_head("Spielplan", "Nächste Spiele", f'<a class="more" href="/spielplan#{slug}">Ganzer Spielplan</a>')}
   {f'<div class="games">{"".join(game_card(g, info) for g in nxt)}</div>' if nxt else '<p class="muted">Die nächsten Spiele stehen hier, sobald sie feststehen.</p>'}
   {f'<h3 class="pos">Ergebnisse</h3><div class="games">{"".join(game_card(g, info) for g in done)}</div>' if done else ''}
-  {f'<div class="squads" style="margin-top:20px">{fde}</div>' if fde else ''}</div></section>""" if has_games else (f'<section><div class="wrap"><div class="squads">{fde}</div></div></section>' if fde else '')}"""
+  {f'<div class="squads" style="margin-top:20px">{fde}</div>' if fde else ''}</div></section>""" if has_games else
+  f"""<section class="tone dark" id="spiele"><div class="wrap">{section_head("Spielplan", "Spiele und Tabelle")}
+  <p>Alle Spiele, Ergebnisse und die Tabelle stehen aktuell bei fussball.de.</p>
+  {f'<div class="squads" style="margin-top:16px">{fde}</div>' if fde else f'<p>{placeholder("Link zu fussball.de im Hub unter Mannschaften eintragen")}</p>'}</div></section>""" if link_only else
+  (f'<section><div class="wrap"><div class="squads">{fde}</div></div></section>' if fde else '')}"""
     desc = f"{t} des SV Amisia Wolthusen: Training, Trainer und Spiele." if youth or sport != "Fußball" else seo_desc(info, "mannschaft", f"{t} des SV Amisia Wolthusen: Kader, Trainer, Training und Spiele.")
     return layout("mannschaft/" + slug, t, desc, body, info, canonical=f"/mannschaft/{slug}", active="mannschaft")
 
@@ -761,12 +766,16 @@ def page_schedule(info, games):
                 + (f'<h3 class="pos">Kommende Spiele</h3><div class="games">{"".join(game_card(g, info) for g in up)}</div>' if up else "")
                 + (f'<h3 class="pos">Ergebnisse</h3><div class="games">{"".join(game_card(g, info) for g in done)}</div>' if done else "") + "</section>")
     blocks = "".join(team_block(t) for t in TEAMS)
+    link_teams = [(t, label, u) for t in TEAMS if (TEAM_INFO.get(t) or {}).get("schedule") == "nur fussball.de-Link" for label, u in FUSSBALL_DE.get(t, [])]
+    more = "".join(f'<a class="squad" href="{e(u)}" target="_blank" rel="noopener"><div><b>{e(t)}</b><span>{e(label)}</span></div><i>fussball.de</i></a>'
+                   for t, label, u in link_teams)
     jump = "".join(f'<a class="btn sm ghost-dark" href="#{TEAM_SLUG[t]}">{e(t)}</a>' for t in TEAMS if any(team_of(g) == t for g in games))
     maps = home_maps_url(info)
     body = f"""<section class="page-hero">{picture("spielplan", "100vw", "hero-img", eager=True)}{SHIELD}<div class="hero-text"><p class="eyebrow">Saison {e(info.get("season"))}</p><h1>Spielplan</h1>
   <p class="lead">Alle Spiele und Ergebnisse unserer Mannschaften.</p></div></section>
 {f'<section class="wrap jump-bar"><div class="btns">{jump}</div></section>' if jump else ''}
 {blocks or '<section class="wrap"><p>Der Spielplan folgt in Kürze. Bis dahin findest du alle Spiele bei <a href="/fussball#spiele">fussball.de</a>.</p></section>'}
+{f'<section class="wrap">{section_head("Weitere Mannschaften", "Spiele und Tabellen bei fussball.de")}<div class="squads">{more}</div></section>' if more else ''}
 <section class="tone white"><div class="wrap cards">
   <div class="card"><p class="eyebrow">Heimspiele</p><h3>{e(info.get("home_location") or "") or placeholder("Heimspielort")}</h3>
     <p>{f'<a href="{e(maps)}" target="_blank" rel="noopener">{e(info["site_home_address"])}</a>' if info.get("site_home_address") and maps else text_or_ph(info.get("site_home_address"), "Adresse Sportplatz")}</p>

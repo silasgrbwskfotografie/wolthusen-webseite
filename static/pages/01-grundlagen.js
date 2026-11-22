@@ -61,6 +61,8 @@ const F = {
     { key: 'youth', label: 'Jugendmannschaft (Minderjährige)', type: 'check', hint: 'Spieler erscheinen dann nie auf der Webseite, nur Trainer und Betreuer.' },
     { key: 'active', label: 'Aktiv', type: 'check', default: 1, hint: 'Inaktive Mannschaften verschwinden von der Webseite und aus den Auswahllisten, ihre Daten bleiben.' },
     { key: 'page', label: 'Eigene Seite auf der Webseite', type: 'check', default: 1, hint: 'Mit Titelbild, Text, Training, Trainern, Kader und Spielen unter /mannschaft/<Kurzname>.' },
+    { key: 'schedule', label: 'Spielplan auf der Webseite', type: 'select', options: ['aus dem Hub', 'nur fussball.de-Link'], default: 'aus dem Hub',
+      hint: 'Aus dem Hub: Termine und Ergebnisse aus dem Spielplan (Startseite, Spielplan, Mannschaftsseite). Nur Link: kein eigener Spielplan auf der Webseite, stattdessen der fussball.de-Link unten.' },
     { key: 'slug', label: 'Kurzname für die Adresse', placeholder: 'wird aus dem Namen gebildet', hint: 'Nur Kleinbuchstaben, Zahlen und Bindestriche. Ändern macht alte Links ungültig.' },
     { key: 'lead', label: 'Untertitel', placeholder: 'z. B. Unser Aushängeschild', full: true },
     { key: 'intro', label: 'Text auf der Seite', type: 'textarea', rows: 5, full: true, hint: 'Leerzeile = neuer Absatz.' },

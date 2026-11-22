@@ -81,7 +81,8 @@ App.pages.teams = async (view, args) => {
       <div class="team-main">
         <div class="toolbar">${Number(cur.active) ? '<span class="badge ok">aktiv</span>' : '<span class="badge warn">inaktiv: nicht auf der Webseite</span>'}
           ${Number(cur.page) ? `<span class="badge">Seite /mannschaft/${esc(cur.slug)}</span>` : '<span class="badge">ohne eigene Seite</span>'}
-          ${youth ? '<span class="badge red">Jugend: Spieler nie auf der Webseite</span>' : ''}</div>
+          ${youth ? '<span class="badge red">Jugend: Spieler nie auf der Webseite</span>' : ''}
+          ${cur.schedule === 'nur fussball.de-Link' ? '<span class="badge">Spielplan: nur fussball.de-Link</span>' : ''}</div>
         <div class="grid2">
           <div class="card"><h3>Webseite</h3>
             <p><b>${esc(cur.lead || '')}</b>${cur.lead ? '' : '<span class="muted">Kein Untertitel</span>'}</p>
@@ -109,6 +110,7 @@ App.pages.teams = async (view, args) => {
             ${youth ? '<p class="muted small">Jugend: Die Spieler stehen nur im Hub, nie auf der Webseite.</p>' : ''}
             <table><tbody>${squad.map(personRow).join('') || '<tr><td class="empty">Noch keine Spieler.</td></tr>'}</tbody></table></div>
           ${showGames ? `<div class="card"><div class="page-head" style="margin:0 0 8px"><h3 style="margin:0">Spiele</h3><div class="btn-row"><a class="btn sm keep" href="#/games">Spielplan</a><button class="vw btn sm" id="tm_g_new">+ Spiel</button></div></div>
+            ${cur.schedule === 'nur fussball.de-Link' ? `<p class="muted small">Auf der Webseite steht für diese Mannschaft nur der fussball.de-Link${links.length ? '' : ' (noch keiner eingetragen)'}. Spiele hier bleiben intern.</p>` : ''}
             <h4 class="muted small">Nächste Spiele</h4><table><tbody>${next.map(gameRow).join('') || '<tr><td class="empty">Keine kommenden Spiele.</td></tr>'}</tbody></table>
             ${done.length ? `<h4 class="muted small" style="margin-top:12px">Zuletzt gespielt</h4><table><tbody>${done.map(gameRow).join('')}</tbody></table>` : ''}</div>` : ''}
         </div>

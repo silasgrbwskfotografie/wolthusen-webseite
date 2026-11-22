@@ -51,7 +51,7 @@ import urllib.error
 
 import website   # öffentliche Webseite (website.py, gleiche Ordnerebene)
 
-VERSION = "1.4"
+VERSION = "1.5"
 APP_NAME = "Wolthusen Hub"
 ENV = os.environ.get
 HOST = ENV("TMH_HOST", "127.0.0.1")
@@ -86,6 +86,8 @@ SPORTS = ("Fußball", "American Football", "Turnen & Gymnastik", "Sonstiges")   
 TEAMS = ["Erste Herren", "Zweite Herren", "Alte Herren", "D-Jugend", "E-Jugend", "F-Jugend", "G-Jugend"]   # aktive Mannschaften (Startwerte)
 MAIN_TEAM = TEAMS[0]   # Standard für neue Spieler und Spiele: erste aktive Fußball-Mannschaft ohne Jugend
 YOUTH_TEAMS = {"D-Jugend", "E-Jugend", "F-Jugend", "G-Jugend"}   # teams.youth=1, auch inaktive: Spieler (Minderjährige) nie auf der Webseite
+TEAM_SCHEDULES = ("aus dem Hub", "nur fussball.de-Link")   # teams.schedule: Spielplan auf der Webseite
+LINK_TEAMS = set()   # Mannschaften mit „nur fussball.de-Link“: ihre Spiele erscheinen nicht auf der Webseite
 TEAM_REF_TABLES = ("games", "players", "player_signups", "articles", "trainings")   # Spalte team = Name der Mannschaft
 # Anliegen im Kontaktformular der Webseite (landet als Quelle in contact_requests), wie CONTACT_TOPICS in website.py
 CONTACT_TOPICS = ("Allgemeine Frage", "Mitgliedschaft", "Probetraining Herren", "Probetraining Jugend", "Turnen und Gymnastik", "Saal mieten", "Sponsoring", "Dauerkarte")
@@ -168,6 +170,7 @@ TABLES = {
         "sport": "TEXT DEFAULT 'Fußball'",      # SPORTS
         "youth": "INTEGER DEFAULT 0",           # Jugend: Spieler nie öffentlich
         "page": "INTEGER DEFAULT 1",            # eigene Seite auf der Webseite
+        "schedule": "TEXT DEFAULT 'aus dem Hub'",   # TEAM_SCHEDULES: Termine aus dem Hub oder nur Link zu fussball.de
         "lead": "TEXT",                         # Untertitel
         "intro": "TEXT",                        # Text auf der Seite
         "links": "TEXT",                        # eine Zeile pro Link: Text | https://...
@@ -1034,6 +1037,12 @@ def init_db():
                     conn.execute("INSERT INTO teams (name, slug, sport, youth, page, lead, links, sort, active, created_at, updated_at) "
                                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)", (*row, now, now))
             set_setting(conn, "teams_seeded", "1")
+        if get_setting(conn, "teams_schedule_set") != "1":
+            # 1.5: Jugend und Alte Herren zeigen auf der Webseite nur den fussball.de-Link, solange im Hub keine Spiele von ihnen stehen
+            for r in conn.execute("SELECT id, name FROM teams WHERE youth=1 OR name='Alte Herren'").fetchall():
+                if not conn.execute("SELECT 1 FROM games WHERE team=? LIMIT 1", (r["name"],)).fetchone():
+                    conn.execute("UPDATE teams SET schedule=? WHERE id=?", (TEAM_SCHEDULES[1], r["id"]))
+            set_setting(conn, "teams_schedule_set", "1")
         load_teams(conn)
         if not conn.execute("SELECT 1 FROM settings WHERE key='pf_media_granted'").fetchone():
             # 4.27: Das Media Team bekommt neue Mails gemeldet und darf sie bearbeiten (einmalig, danach unter Gruppen & Rechte änderbar)
@@ -2335,12 +2344,13 @@ def team_slug(text):
 
 def load_teams(conn):
     """Mannschaften aus der Tabelle teams in TEAMS, YOUTH_TEAMS, MAIN_TEAM und website.py übernehmen."""
-    global TEAMS, MAIN_TEAM, YOUTH_TEAMS
+    global TEAMS, MAIN_TEAM, YOUTH_TEAMS, LINK_TEAMS
     order = {s: i for i, s in enumerate(SPORTS)}
     rows = sorted((dict(r) for r in conn.execute("SELECT * FROM teams")),
                   key=lambda r: (order.get(r["sport"], 99), int(r["youth"] or 0), int(r["sort"] or 0), r["id"]))
     active = [r for r in rows if r["active"]]
     YOUTH_TEAMS = {r["name"] for r in rows if r["youth"]}
+    LINK_TEAMS = {r["name"] for r in rows if r["schedule"] == TEAM_SCHEDULES[1]}
     TEAMS = [r["name"] for r in active]
     MAIN_TEAM = next((r["name"] for r in active if r["sport"] == "Fußball" and not r["youth"]), TEAMS[0] if TEAMS else "Erste Herren")
     website.set_teams(active)
@@ -2358,6 +2368,8 @@ def team_clean(conn, vals, rid=None):
             return "Eine Mannschaft mit diesem Namen gibt es schon."
     if "sport" in vals or not old:
         vals["sport"] = vals.get("sport") if vals.get("sport") in SPORTS else SPORTS[0]
+    if "schedule" in vals or not old:
+        vals["schedule"] = vals.get("schedule") if vals.get("schedule") in TEAM_SCHEDULES else TEAM_SCHEDULES[0]
     if "slug" in vals or not old:
         slug = team_slug(vals.get("slug") or vals.get("name") or (old["name"] if old else ""))
         base, n = slug, 2
@@ -2379,7 +2391,7 @@ def public_games():
         o = opp.get(g["opponent_id"])
         played = g["score_us"] not in (None, "") and g["score_them"] not in (None, "")
         team = g["team"] or MAIN_TEAM
-        if team not in TEAMS:   # Mannschaft inaktiv oder gelöscht: nicht auf der Webseite
+        if team not in TEAMS or team in LINK_TEAMS:   # inaktiv, gelöscht oder „nur fussball.de-Link“: nicht auf der Webseite
             continue
         out.append({
             "id": g["id"], "team": team, "season": g["season"] or "", "date": g["date"], "time": g["time"] or "", "home": bool(g["home"]), "kind": g["kind"] or "",

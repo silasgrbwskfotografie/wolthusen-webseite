@@ -1,5 +1,11 @@
 # Änderungen
 
+## 1.5 (22.11.2026)
+- Mannschaften: Schalter „Spielplan auf der Webseite“ (aus dem Hub oder nur fussball.de-Link). Mit „nur Link“ zeigt die Mannschaftsseite
+  statt eines leeren Spielplans einen Kasten mit dem fussball.de-Link, ihre Spiele erscheinen weder auf Startseite noch im Spielplan,
+  der Spielplan listet sie unter „Weitere Mannschaften“. Im Hub bleiben die Spiele erhalten.
+- Vorbelegt: Jugend und Alte Herren auf „nur fussball.de-Link“, solange im Hub keine Spiele von ihnen stehen
+
 ## 1.4 (22.11.2026)
 - Spielplan: Knopf „Import aus DFBnet“. Vereinsspielplan als Excel oder CSV auswählen, Vorschau mit neuen, verlegten und abgesetzten Spielen,
   dann übernehmen. Abgleich über die Spielkennung (sonst Datum, Mannschaft, Gegner), neue Gegner werden angelegt,
