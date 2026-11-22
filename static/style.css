@@ -41,8 +41,6 @@
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
 body{font-family:var(--font);font-size:14px;color:var(--ink);background:var(--bg);display:flex}
-/* Wappen groß und blass im Hintergrund */
-body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.05;background:url(logo.png) center/min(70vw,680px) auto no-repeat}
 a{color:var(--red)}
 button,input,select,textarea{font:inherit;color:inherit}
 
@@ -861,3 +859,138 @@ body{background:radial-gradient(900px 620px at 100% 0%,var(--glow),transparent 6
 .dash-edit .list-item.off{opacity:.55}
 @media (max-width:1150px){.dash-w.tall{grid-row:auto}}
 @media (max-width:700px){.dash-w.w2{grid-column:auto}}
+
+/* ====================================================================================================
+   Design 1.3 „schlicht“ (wie Emden Tigers Hub 5.19): ruhige Flächen (hell gebrochenes Weiß, dunkel Graphit statt Schwarz), kein Schimmer, keine Schatten,
+   kompakte Karten mit Kopfzeile, normale Schrift für Titel und Zahlen, Vereinsviolett nur als Akzent (Knöpfe, aktiver Menüpunkt, Markierungen).
+   ==================================================================================================== */
+:root{
+  --bg:#f3f3f1; --card:#ffffff; --card-2:#f7f7f5; --hover:#efefec; --line:#e2e2de; --line-2:#cfcfca; --input-bg:#ffffff;
+  --ink:#1c1c1e; --ink-2:#4a4b50; --ink-3:#74767c;
+  --side:#ffffff; --side-2:#f1f1ee; --side-line:#e2e2de;
+  --shadow:none; --shadow-lg:0 12px 40px rgba(0,0,0,.16); --glow:transparent; --radius:8px; --glass:var(--card);
+  --red-glow:rgba(61,47,150,.18);
+}
+:root[data-theme="dark"]{
+  --red:#6a5ad6; --red-dark:#4b3db0; --red-hi:#7d6ee0; --red-soft:rgba(106,90,214,.16); --red-text:#b4a6f0; --red-glow:rgba(106,90,214,.25);
+  --bg:#16171a; --card:#1e1f23; --card-2:#24262a; --hover:#2a2c31; --line:#2e3035; --line-2:#3c3e44; --input-bg:#1a1b1e;
+  --ink:#e7e7e8; --ink-2:#bdbec3; --ink-3:#9b9da3;
+  --side:#1b1c20; --side-2:#24262a; --side-line:#2e3035;
+  --shadow:none; --shadow-lg:0 16px 48px rgba(0,0,0,.5); --glow:transparent; --glass:var(--card);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme]){
+  --red:#6a5ad6; --red-dark:#4b3db0; --red-hi:#7d6ee0; --red-soft:rgba(106,90,214,.16); --red-text:#b4a6f0; --red-glow:rgba(106,90,214,.25);
+  --bg:#16171a; --card:#1e1f23; --card-2:#24262a; --hover:#2a2c31; --line:#2e3035; --line-2:#3c3e44; --input-bg:#1a1b1e;
+  --ink:#e7e7e8; --ink-2:#bdbec3; --ink-3:#9b9da3;
+  --side:#1b1c20; --side-2:#24262a; --side-line:#2e3035;
+  --shadow:none; --shadow-lg:0 16px 48px rgba(0,0,0,.5); --glow:transparent; --glass:var(--card);
+}}
+html,body{background:var(--bg)}
+body{font-size:14px}
+#view{padding:20px 24px 60px;max-width:1280px}
+.page-head{margin-bottom:16px}
+h1{font-family:var(--font);font-weight:650;font-size:22px;letter-spacing:0;line-height:1.25;text-transform:none}
+h1 small{font-size:13px;margin-top:3px}
+h2{font-size:12px;letter-spacing:.8px}
+.card{border-radius:8px;padding:14px 16px;box-shadow:none}
+.table-wrap{border-radius:8px;box-shadow:none}
+th{font-size:11px;letter-spacing:.4px;padding:8px 12px}
+td{padding:8px 12px}
+a.card:hover,.on-card:hover,.mag-card:hover,.note-card:hover{transform:none}
+.stat b{font-family:var(--font);font-weight:650;font-size:22px;letter-spacing:0}
+.stat span{letter-spacing:.3px}
+.stat-tile{border-radius:6px}
+.next-game{box-shadow:none}
+.date-box,.gd-date{border-radius:6px}
+.date-box b,.gd-date b{font-family:var(--font);font-weight:650}
+.btn{border-radius:6px;padding:6px 12px;font-size:13px;font-weight:550}
+.btn.sm{border-radius:5px;padding:3px 9px;font-size:12px}
+.btn:active{transform:none}
+.btn.primary{background:var(--red);border-color:var(--red);box-shadow:none}
+.btn.primary:hover{background:var(--red-dark);border-color:var(--red-dark);box-shadow:none}
+.toolbar .btn.sm.dark{box-shadow:none}
+.field input[type=text],.field input[type=number],.field input[type=date],.field input[type=time],.field input[type=url],.field input[type=email],.field input[type=password],.field select,.field textarea,.input,
+.modal-box input[type=text],.modal-box input[type=password]{border-radius:6px;padding:7px 10px}
+input:focus,select:focus,textarea:focus{box-shadow:0 0 0 2px var(--red-glow)}
+.badge{border-radius:4px;padding:2px 7px;font-size:11px;font-weight:600}
+.modal{background:rgba(0,0,0,.45);-webkit-backdrop-filter:none;backdrop-filter:none}
+.modal-box{border-radius:10px;padding:20px 22px}
+.modal-box h2{font-family:var(--font);font-weight:650;font-size:18px;letter-spacing:0;text-transform:none}
+.toast{border-radius:6px}
+.tn-box,.pf-bulk{border-radius:8px}
+
+/* Leiste oben: durchgehend, flach, aktiver Bereich violett unterstrichen */
+@media (min-width:701px){
+  #topnav{padding:0 20px;height:52px;gap:18px;background:var(--card);border-bottom:1px solid var(--line)}
+}
+.tn-brand{background:none;border:0;box-shadow:none;padding:0;border-radius:0;font-weight:700}
+.tn-brand img{width:28px;height:28px;border-radius:6px;padding:4px}
+.tn-pills{margin:0;background:none;border:0;box-shadow:none;padding:0;gap:0;-webkit-backdrop-filter:none;backdrop-filter:none;flex:1;align-self:stretch;flex-wrap:nowrap}
+.tn-pills>a,.tn-dd>button{border-radius:0;padding:0 12px;height:52px;color:var(--ink-3);font-weight:550;font-size:13.5px}
+.tn-dd{display:flex}
+@media (hover:hover) and (pointer:fine){.tn-pills>a:hover,.tn-dd>button:hover{background:none;color:var(--ink)}}
+.tn-pills>a.on,.tn-dd.on>button{background:none;color:var(--ink);box-shadow:inset 0 -2px 0 var(--red)}
+.tn-menu{padding-top:4px}
+.tn-box{padding:5px}
+.tn-box a,.tn-box button{border-radius:5px;padding:7px 10px;font-size:13.5px}
+.tn-theme{border-radius:6px;padding:2px;box-shadow:none}
+.tn-theme button{width:28px;height:26px;border-radius:4px}
+.tn-theme button.on{background:var(--card-2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.tn-av{width:30px;height:30px;box-shadow:none;background:var(--red);border:0;color:#fff;font-size:12px}
+.tn-me>button{padding:0}
+
+/* Übersicht: Kopf, Kennzahlen-Leiste, Widgets mit Kopfzeile */
+.dash-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.dash-head h1{margin:0}
+.dash-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));background:var(--card);border:1px solid var(--line);border-radius:8px;margin-bottom:14px;overflow:hidden}
+.dash-kpis a{padding:10px 14px;border-left:1px solid var(--line);margin-left:-1px;color:var(--ink);text-decoration:none}
+.dash-kpis a:hover{background:var(--hover)}
+.dash-kpis small{display:block;color:var(--ink-3);font-size:12px}
+.dash-kpis b{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums}
+.dash-kpis b.hot{color:var(--red-text)}
+.dash-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.dash-grid .card.dash-w{padding:0;overflow:hidden}
+.dash-wh{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line)}
+.dash-wh h3{margin:0;font-size:13px;font-weight:650}
+.dash-wh h3 span{font-weight:400;color:var(--ink-3);margin-left:4px}
+.dash-wh a{font-size:12px;color:var(--ink-3);text-decoration:none;white-space:nowrap}
+.dash-wh a:hover{color:var(--red-text)}
+.dash-wb{padding:4px 14px 12px}
+.dash-wb .sum-row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+.dash-wb .sum-row:last-child{border-bottom:0}
+.dash-wb .sum-row b{font-size:13px;font-weight:650}
+.dash-wb .sum-row span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dash-wb .list-item{padding:8px 0;gap:10px}
+.dash-wb .list-item:last-child{border-bottom:0}
+.dash-wb .empty-s{color:var(--ink-3);font-size:13px;padding:8px 0}
+.dash-wb>.btn,.dash-wb>.btn-row{margin-top:6px}
+.dash-num{display:flex;align-items:baseline;gap:8px;padding:8px 0 6px;border-bottom:1px solid var(--line)}
+.dash-num b{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums}
+.dash-num span{color:var(--ink-3);font-size:12.5px}
+.dash-game .t{display:block;font-size:15px;margin:8px 0 2px}
+.dash-chk{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+.dash-chk .ok{color:var(--ok);font-weight:600}.dash-chk .no{color:var(--ink-3)}
+.dash-hint{display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;line-height:1.45}
+.dash-hint:last-child{border-bottom:0}
+.dash-hint .btn{margin-top:4px}
+.dn-dot{width:7px;height:7px;margin-top:6px}
+.dash-agenda{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.dash-agenda .ad{padding:8px 8px 10px;border-left:1px solid var(--line);min-height:84px;min-width:0}
+.dash-agenda .ad:first-child{border-left:0}
+.dash-agenda .ad-d{font-size:12px;color:var(--ink-3);margin-bottom:4px}
+.dash-agenda .ad.today .ad-d{color:var(--red-text);font-weight:700}
+.dash-agenda .ev{display:block;font-size:12px;padding:3px 6px;border-radius:4px;background:var(--card-2);border-left:2px solid var(--line-2);margin-top:3px;color:var(--ink);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-agenda .ev.game{border-left-color:var(--red)}
+.dash-cal .dash-wb{padding:0}
+.dash-logos{margin-top:8px}
+.dash-logos img,.dash-logos span{width:56px;height:36px;border-radius:6px}
+.dash-quick{margin-top:8px}
+.dash-quick a{border-radius:6px;padding:7px 9px}
+.dash-checks .card{padding:10px 12px}
+#dashTasks .card,#dashMaint .card{margin-bottom:14px}
+@media (max-width:1100px){.dash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:700px){.dash-grid{grid-template-columns:1fr}.dash-agenda{grid-template-columns:repeat(7,minmax(70px,1fr));overflow-x:auto}#view{padding:14px 12px calc(100px + env(safe-area-inset-bottom))}}
+
+/* Verein > Mannschaften im schlichten Stil: aktive Mannschaft nur mit Strich in der Akzentfarbe markiert */
+.team-nav a{border-radius:5px;font-weight:550}
+.team-nav a.on{background:var(--hover);color:var(--ink);box-shadow:inset 2px 0 0 var(--red)}

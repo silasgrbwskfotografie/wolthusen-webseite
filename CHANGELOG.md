@@ -1,5 +1,12 @@
 # Änderungen
 
+## 1.3 (22.11.2026)
+- Hub schlicht und sachlich (wie Emden Tigers Hub 5.19): ruhige Flächen (hell gebrochenes Weiß, dunkel Graphit), keine Schatten, kein Schimmer,
+  kein Wasserzeichen, Systemschrift für Titel und Zahlen, Vereinsviolett nur für Hauptknöpfe, aktiven Menüpunkt und Markierungen
+- Leiste oben flach und durchgehend, aktiver Bereich mit violettem Strich
+- Übersicht kompakt: Kennzahlen-Leiste mit Links, Widgets als Karten mit Kopfzeile und Zeilen statt Fotos, Ringen und Balken,
+  Woche als Tagesleiste; gespeicherte Widget-Auswahl bleibt erhalten
+
 ## 1.2 (21.11.2026)
 - Neuer Reiter Verein > Mannschaften: links alle Mannschaften nach Sportart (Fußball, Fußball Jugend, American Football, Turnen & Gymnastik, Sonstiges),
   rechts alles zu einer Mannschaft: Texte, Links, Titelbild der Seite, Trainingszeiten, Trainer und Betreuer, Kader, Spiele

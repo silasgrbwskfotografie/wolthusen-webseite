@@ -81,95 +81,86 @@ App.pages.dashboard = async (view) => {
     !!nextChk.sponsor_id,
   ] : [];
   const chkDone = chkItems.filter(Boolean).length;
-  const pills = [
-    medien ? ['Postplan', `${weekPosts} diese Woche`, 'b1'] : null,
-    nextChk ? ['Nächstes Spiel', `${chkDone} von ${chkItems.length} vorbereitet`, 'b2'] : null,
-    sg.length ? ['Saison', `${played} von ${sg.length} gespielt`, 'b3'] : null,
-    ['Hinweise', `${notes.length} offen`, 'b4'],
-  ].filter(Boolean);
-  const bigs = [
-    ['team', dash.counts.players, 'Spieler'],
-    dash.counts.members !== undefined ? ['team', dash.counts.members, 'Mitglieder'] : ['user', dash.counts.staff, 'Coaches & Staff'],
-    ['star', dash.counts.sponsors, 'Sponsoren'],
-  ];
   const days = next ? daysUntil(next.date) : null;
-  const ringPct = days === null ? 0 : Math.max(4, Math.min(100, Math.round((14 - Math.min(days, 14)) / 14 * 100)));
-  const arrow = '<svg viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></svg>';
-  const go = (href, label) => `<a class="dash-go" href="${href}" aria-label="${label}">${arrow}</a>`;
-  const maxDay = Math.max(1, ...week.map(d => postsOn(d).length));
   const oppName = g => esc(byId(App.cache.opponents, g.opponent_id)?.name || 'TBA');
-  const calItems = d => [
-    ...App.cache.games.filter(g => g.date === d).map(g => `<a class="dc-ev red" href="#/games"><b>${Number(g.home) ? 'Heimspiel' : 'Auswärts'}</b><small>${oppName(g)}${g.time ? ', ' + g.time : ''}</small></a>`),
-    ...(medien ? postsOn(d).slice(0, 3).map((p, i) => `<a class="dc-ev ${i % 2 ? 'light' : 'dark'}" href="#/posts"><b>${esc(p.title || p.type || 'Post')}</b><small>${esc(p.type || '')}${p.time ? ', ' + p.time : ''}</small></a>`) : []),
-  ].join('');
   const rows = list => list.map(([l, v, st]) => `<div class="sum-row"><span>${l}</span><b${st ? ` style="${st}"` : ''}>${v}</b></div>`).join('');
+  const num = (n, l) => `<div class="dash-num"><b>${n}</b><span>${l}</span></div>`;
+  const none = t => `<div class="empty-s">${t}</div>`;
   const loading = '<p class="muted small">Lädt ...</p>';
+  const inDays = d => d === 0 ? 'heute' : d === 1 ? 'morgen' : `in ${d} Tagen`;
+  const agendaItems = d => [
+    ...App.cache.games.filter(g => g.date === d).map(g => `<a class="ev game" href="#/games" title="${Number(g.home) ? 'Heimspiel' : 'Auswärts'}: ${oppName(g)}">${g.time ? g.time + ' ' : ''}${Number(g.home) ? 'vs' : '@'} ${oppName(g)}</a>`),
+    ...(medien ? postsOn(d).slice(0, 3).map(p => `<a class="ev" href="#/posts" title="${esc(p.title || p.type || 'Post')}">${p.time ? p.time + ' ' : ''}${esc(p.title || p.type || 'Post')}</a>`) : []),
+  ].join('');
 
-  // Alle Widgets: html() baut den Inhalt, later(el) füllt Daten nach, die erst geladen werden; ok() = darf die Person es sehen
+  // Alle Widgets (5.19 schlicht): t = Titel, link = [Adresse, Text] oben rechts, body() = Inhalt, later(el) füllt nach, ok() = darf die Person es sehen
   const W = {
-    game: { t: 'Nächstes Spiel', w: 1, cls: 'dash-photo', html: () => `<img src="/web/assets/img/spiel-960.webp" alt="" loading="lazy">
-      ${next ? `<span class="dash-kick">${Number(next.home) ? 'Nächstes Heimspiel' : 'Nächstes Auswärtsspiel'}</span>
-        <div class="dash-ph-in"><div><b>${esc(s.club_short || 'Amisia')} ${Number(next.home) ? 'vs' : '@'} ${esc(opp?.name || 'TBA')}</b>
-          <small>${fmtDate(next.date, true)}${next.time ? ', ' + next.time + ' Uhr' : ''}${next.location || Number(next.home) ? ' | ' + esc(next.location || s.home_location || '') : ''}</small>
-          ${medien ? `<div class="btn-row" style="margin-top:10px"><button class="btn sm" onclick="copyGameInfo(${next.id})">Infos kopieren</button>${mw ? `<button class="pp btn sm" onclick="planPost({type:'Gameday',game_id:${next.id}})">Gameday-Post</button>` : ''}</div>` : ''}</div>
-          <span class="dash-tag">${days === 0 ? 'Heute' : days === 1 ? 'Morgen' : `in ${days} Tagen`}</span></div>`
-        : `<div class="dash-ph-in"><div><b>Kein Spiel geplant</b><small>Die Termine stehen im Spielplan.</small></div>${vw ? '<button class="vw btn sm" onclick="editGame()">Spiel anlegen</button>' : ''}</div>`}` },
-    posts: { t: 'Postplan der Woche', w: 1, ok: () => medien, html: () => `<h3>Postplan</h3>${go('#/posts', 'Zum Postplan')}
-      <div class="dash-big">${weekPosts} Post${weekPosts === 1 ? '' : 's'}</div><div class="muted small">diese Woche geplant</div>
-      <div class="bars">${week.map((d, i) => { const n = postsOn(d).length; return `<i title="${fmtDate(d, true)}: ${n}">${d === today && n ? `<em>${n}</em>` : ''}<span class="${d === today ? 'hot' : n ? '' : 'dim'}" style="height:${Math.max(8, Math.round(n / maxDay * 100))}%"></span>${WD[i]}</i>`; }).join('')}</div>` },
-    countdown: { t: 'Bis zum Anstoß', w: 1, html: () => `<h3>Bis zum Anstoß</h3>${go('#/games', 'Zum Spielplan')}
-      <div class="dash-ring" style="--p:${ringPct}%"><div><b>${days === null ? '-' : days === 0 ? 'Heute' : days}</b><small>${days === null ? 'kein Spiel' : days === 0 ? 'Gameday' : days === 1 ? 'Tag' : 'Tage'}</small></div></div>
-      <div class="muted small" style="text-align:center">${next ? fmtDate(next.date, true) : 'Spielplan pflegen'}</div>` },
-    prep: { t: 'Vorbereitung und Hinweise', w: 1, tall: true, html: () => `<div class="dash-tt"><h3>Vorbereitung</h3><b>${chkItems.length ? Math.round(chkDone / chkItems.length * 100) : 100} %</b></div>
-      ${chkItems.length ? `<div class="dash-seg"><div>Gameday-Post<span class="${chkItems[0] ? 's1' : 's3'}"></span></div><div>Media Team<span class="${chkItems[1] ? 's1' : 's3'}"></span></div><div>Sponsor<span class="${chkItems[2] ? 's1' : 's3'}"></span></div></div>` : ''}
-      <div class="dash-dark"><div class="dash-dh"><span>Hinweise</span><b>${notes.length}</b></div>
-        ${notes.length ? notes.map(n => `<div class="dash-note"><span class="dn-dot"></span><div>${n}</div></div>`).join('') : '<div class="dash-note"><span class="dn-dot ok"></span><div>Alles im grünen Bereich.</div></div>'}</div>` },
-    team: { t: 'Team', w: 1, cls: 'dash-acc', html: () => `<h3>Team</h3>${rows(team)}` },
-    finance: { t: 'Finanzen', w: 1, cls: 'dash-acc', ok: () => !!dash.finance, html: () => `<h3>Finanzen ${dash.finance.year}</h3>${go('#/finance', 'Zu den Buchungen')}
-      ${rows([['Einnahmen', eur(dash.finance.income)], ['Ausgaben', eur(dash.finance.expense)],
+    game: { t: 'Nächstes Spiel', w: 1, cls: 'dash-game', link: ['#/games', 'Spielplan'], body: () => next
+      ? `<b class="t">${esc(s.club_short || 'Amisia')} ${Number(next.home) ? 'vs' : '@'} ${esc(opp?.name || 'TBA')}</b>
+        <div class="muted small">${fmtDate(next.date, true)}${next.time ? ', ' + next.time + ' Uhr' : ''}${next.location || Number(next.home) ? ' | ' + esc(next.location || s.home_location || '') : ''}</div>
+        <div style="margin:8px 0"><span class="badge ${days <= 7 ? 'red' : ''}">${Number(next.home) ? 'Heimspiel' : 'Auswärtsspiel'} ${inDays(days)}</span></div>
+        ${medien ? `<div class="btn-row"><button class="btn sm" onclick="copyGameInfo(${next.id})">Infos kopieren</button>${mw ? `<button class="pp btn sm" onclick="planPost({type:'Gameday',game_id:${next.id}})">Gameday-Post</button>` : ''}</div>` : ''}`
+      : `${none('Kein Spiel geplant.')}${vw ? '<button class="vw btn sm" onclick="editGame()">Spiel anlegen</button>' : ''}` },
+    posts: { t: 'Postplan der Woche', w: 1, ok: () => medien, link: ['#/posts', 'Postplan'], body: () => `${num(weekPosts, weekPosts === 1 ? 'Post diese Woche' : 'Posts diese Woche')}
+      ${rows(week.map((d, i) => [`${WD[i]} ${d.slice(8, 10)}.${d === today ? ' <span class="badge red">heute</span>' : ''}`, postsOn(d).length || '<span class="muted">-</span>']))}` },
+    countdown: { t: 'Bis zum Anstoß', w: 1, link: ['#/games', 'Spielplan'], body: () => next
+      ? `${num(days === 0 ? 'Heute' : days, days === 0 ? 'ist Gameday' : days === 1 ? 'Tag' : 'Tage')}${rows([['Datum', fmtDate(next.date, true)], ['Anstoß', next.time ? next.time + ' Uhr' : '-'], ['Gegner', esc(opp?.name || 'TBA')]])}`
+      : none('Kein Spiel geplant.') },
+    prep: { t: 'Vorbereitung und Hinweise', w: 1, tall: true, body: () => `
+      ${chkItems.length ? [['Gameday-Post', chkItems[0]], ['Media Team eingeteilt', chkItems[1]], ['Spielsponsor', chkItems[2]]].map(([l, okk]) => `<div class="dash-chk"><span>${l}</span><span class="${okk ? 'ok' : 'no'}">${okk ? 'erledigt' : 'offen'}</span></div>`).join('') : ''}
+      ${notes.length ? notes.map(n => `<div class="dash-hint"><span class="dn-dot"></span><div>${n}</div></div>`).join('') : '<div class="dash-hint"><span class="dn-dot ok"></span><div>Keine offenen Hinweise.</div></div>'}` },
+    team: { t: 'Team', w: 1, link: ['#/players', 'Kader'], body: () => rows(team) },
+    finance: { t: 'Finanzen', w: 1, ok: () => !!dash.finance, link: ['#/finance', 'Buchungen'], body: () => rows([['Einnahmen ' + dash.finance.year, eur(dash.finance.income)], ['Ausgaben ' + dash.finance.year, eur(dash.finance.expense)],
         ['Saldo', eur(dash.finance.income - dash.finance.expense), `color:${dash.finance.income - dash.finance.expense < 0 ? 'var(--red-text)' : 'var(--ok)'}`],
-        ['Offene Buchungen', dash.finance.open]])}` },
-    calendar: { t: 'Wochenkalender', w: 2, cls: 'dash-cal', html: () => `<div class="dc-h"><a class="dc-nav" href="#/games">Spielplan</a><b>${fmtDate(monday)} bis ${fmtDate(week[6])}</b>${medien ? '<a class="dc-nav" href="#/posts">Postplan</a>' : '<span></span>'}</div>
-      <div class="dc-week">${week.map((d, i) => `<div class="dc-day${d === today ? ' today' : ''}"><div class="dc-d">${WD[i]}<b>${d.slice(8, 10)}</b></div>${calItems(d)}</div>`).join('')}</div>` },
-    games: { t: 'Nächste Spiele', w: 1, html: () => `<h3>Nächste Spiele</h3>${go('#/games', 'Zum Spielplan')}
-      ${dash.next_games.length ? `<div class="list" style="margin-top:12px">${dash.next_games.slice(0, 5).map(g => `<div class="list-item">${dateBox(g.date)}<div class="grow"><b>${Number(g.home) ? 'vs' : '@'} ${oppName(g)}</b><div class="muted small">${g.time ? 'Anstoß ' + g.time + ' Uhr' : ''}</div></div></div>`).join('')}</div>` : '<p class="muted">Keine Spiele geplant.</p>'}` },
-    upcoming: { t: 'Anstehende Posts', w: 1, ok: () => medien, html: () => `<h3>Anstehende Posts</h3>${go('#/posts', 'Zum Postplan')}
-      ${dash.upcoming_posts.length ? `<div class="list" style="margin-top:12px">${dash.upcoming_posts.slice(0, 6).map(p => `<div class="list-item">${dateBox(p.date)}<div class="grow"><b>${esc(p.title || p.type)}</b><div class="muted small">${esc(p.type || '')}${p.time ? ' | ' + p.time + ' Uhr' : ''}</div></div>${statusBadge(p.status)}</div>`).join('')}</div>` : '<p class="muted">Nichts geplant.</p>'}` },
-    checks: { t: 'Content-Check der nächsten Spiele', w: 2, ok: () => !!checks, html: () => `<h3>Content-Check</h3><div class="grid g3 dash-checks" style="margin-top:12px">${checks}</div>` },
-    contacts: { t: 'Neue Anfragen', w: 1, ok: () => can('mitglieder'), html: () => `<h3>Anfragen</h3>${go('#/contacts', 'Zu den Anfragen')}<div data-fill>${loading}</div>`,
+        ['Offene Buchungen', dash.finance.open]]) },
+    calendar: { t: `Diese Woche <span>${fmtDate(monday)} bis ${fmtDate(week[6])}</span>`, name: 'Wochenkalender', w: 2, cls: 'dash-cal', link: medien ? ['#/posts', 'Postplan'] : ['#/games', 'Spielplan'], body: () =>
+      `<div class="dash-agenda">${week.map((d, i) => `<div class="ad${d === today ? ' today' : ''}"><div class="ad-d">${WD[i]} ${d.slice(8, 10)}.${d === today ? ' heute' : ''}</div>${agendaItems(d)}</div>`).join('')}</div>` },
+    games: { t: 'Nächste Spiele', w: 1, link: ['#/games', 'Spielplan'], body: () => dash.next_games.length
+      ? `<div class="list">${dash.next_games.slice(0, 5).map(g => `<div class="list-item">${dateBox(g.date)}<div class="grow"><b>${Number(g.home) ? 'vs' : '@'} ${oppName(g)}</b><div class="muted small">${g.time ? 'Anstoß ' + g.time + ' Uhr' : ''}</div></div></div>`).join('')}</div>` : none('Keine Spiele geplant.') },
+    upcoming: { t: 'Anstehende Posts', w: 1, ok: () => medien, link: ['#/posts', 'Postplan'], body: () => dash.upcoming_posts.length
+      ? `<div class="list">${dash.upcoming_posts.slice(0, 6).map(p => `<div class="list-item">${dateBox(p.date)}<div class="grow"><b>${esc(p.title || p.type)}</b><div class="muted small">${esc(p.type || '')}${p.time ? ' | ' + p.time + ' Uhr' : ''}</div></div>${statusBadge(p.status)}</div>`).join('')}</div>`
+      : `${none('Nichts geplant.')}${mw ? '<button class="pp btn sm" onclick="planPost()">+ Post planen</button>' : ''}` },
+    checks: { t: 'Content-Check der nächsten Spiele', w: 2, ok: () => !!checks, body: () => `<div class="grid g3 dash-checks" style="margin-top:8px">${checks}</div>` },
+    contacts: { t: 'Neue Anfragen', w: 1, ok: () => can('mitglieder'), link: ['#/contacts', 'Anfragen'], body: () => `<div data-fill>${loading}</div>`,
       later: async el => { const r = (await load('contact_requests', true)).filter(x => x.status === 'Neu');
-        el.innerHTML = `<div class="dash-big">${r.length}</div><div class="muted small">neue über die Webseite</div>${r.slice(0, 4).map(x => `<div class="sum-row"><span>${esc(x.name || '')}</span><span class="muted small">${esc(x.source || '')}</span></div>`).join('')}`; } },
-    mail: { t: 'Postfach', w: 1, ok: () => can('postfach|ownmail'), html: () => `<h3>Postfach</h3>${go('#/postfach', 'Zum Postfach')}<div data-fill>${loading}</div>`,
+        el.innerHTML = num(r.length, 'neu über die Webseite') + rows(r.slice(0, 4).map(x => [esc(x.name || ''), `<span class="muted small">${esc(x.source || '')}</span>`])); } },
+    mail: { t: 'Postfach', w: 1, ok: () => can('postfach|ownmail'), link: ['#/postfach', 'Öffnen'], body: () => `<div data-fill>${loading}</div>`,
       later: async el => { const boxes = [...(can('postfach') ? [['info', 'Vereinspostfach']] : []), ...(me.mail_boxes || []).map(b => [b.key, b.address])];
         const res = await Promise.all(boxes.map(([k, l]) => api('postfach/status' + (k === 'info' ? '' : '?box=' + k)).then(r => [l, Number(r.unseen) || 0]).catch(() => [l, '?'])));
-        el.innerHTML = `<div class="dash-big">${res.reduce((n, [, v]) => n + (Number(v) || 0), 0)}</div><div class="muted small">ungelesene Mails</div>${rows(res.map(([l, v]) => [esc(l), v]))}`; } },
-    newsletter: { t: 'Newsletter', w: 1, ok: () => medien, html: () => `<h3>Newsletter</h3>${go('#/newsletter', 'Zum Newsletter')}<div data-fill>${loading}</div>`,
+        el.innerHTML = num(res.reduce((n, [, v]) => n + (Number(v) || 0), 0), 'ungelesen') + rows(res.map(([l, v]) => [esc(l), v])); } },
+    newsletter: { t: 'Newsletter', w: 1, ok: () => medien, link: ['#/newsletter', 'Newsletter'], body: () => `<div data-fill>${loading}</div>`,
       later: async el => { const d = await api('newsletter'); const act = d.subscribers.filter(x => x.status === 'aktiv').length, last = d.issues.find(i => i.status === 'gesendet');
-        el.innerHTML = `<div class="dash-big">${act}</div><div class="muted small">aktive Abonnenten</div>${rows([['Unbestätigt', d.subscribers.filter(x => x.status === 'offen').length], ['Entwürfe', d.issues.filter(i => i.status === 'entwurf').length]])}
-          ${last ? `<p class="muted small" style="margin-top:8px">Zuletzt: ${esc(last.subject)} (${fmtDate((last.sent_at || '').slice(0, 10))}, ${last.sent_count} erreicht)</p>` : ''}`; } },
-    cards: { t: 'Dauerkarte', w: 1, ok: () => can('finanzen'), html: () => `<h3>Dauerkarte</h3>${go('#/cards', 'Zur Dauerkarte')}<div data-fill>${loading}</div>`,
+        el.innerHTML = num(act, 'aktive Abonnenten') + rows([['Unbestätigt', d.subscribers.filter(x => x.status === 'offen').length], ['Entwürfe', d.issues.filter(i => i.status === 'entwurf').length]])
+          + (last ? `<p class="muted small" style="margin:8px 0 0">Zuletzt: ${esc(last.subject)} (${fmtDate((last.sent_at || '').slice(0, 10))}, ${last.sent_count} erreicht)</p>` : ''); } },
+    cards: { t: 'Dauerkarte', w: 1, ok: () => can('finanzen'), link: ['#/cards', 'Karten'], body: () => `<div data-fill>${loading}</div>`,
       later: async el => { const c = await load('supporter_cards', true); const paid = c.filter(x => Number(x.paid)).length;
-        el.innerHTML = `<div class="dash-big">${c.length}</div><div class="muted small">Karten insgesamt</div>${rows([['Bezahlt', paid], ['Offen', c.length - paid]])}`; } },
-    sponsors: { t: 'Sponsoren', w: 1, html: () => { const sp = App.cache.sponsors.filter(x => Number(x.active));
-      return `<h3>Sponsoren</h3>${go('#/sponsors', 'Zu den Sponsoren')}<div class="dash-big">${sp.length}</div><div class="muted small">aktiv</div>
-        <div class="dash-logos">${sp.slice(0, 8).map(x => x.logo ? `<img src="${esc(x.logo)}" alt="${esc(x.name)}" title="${esc(x.name)}">` : `<span title="${esc(x.name)}">${esc((x.name || '?').slice(0, 2))}</span>`).join('')}</div>`; } },
-    quick: { t: 'Schnellzugriff', w: 1, html: () => `<h3>Schnellzugriff</h3><div class="dash-quick">${tabChoices().filter(c => c.page !== 'dashboard').slice(0, 12).map(c => `<a href="${c.href}">${tabIcon(c.icon)}<span>${esc(c.full)}</span></a>`).join('')}</div>` },
+        el.innerHTML = num(c.length, 'Karten insgesamt') + rows([['Bezahlt', paid], ['Offen', c.length - paid]]); } },
+    sponsors: { t: 'Sponsoren', w: 1, link: ['#/sponsors', 'Alle'], body: () => { const sp = App.cache.sponsors.filter(x => Number(x.active));
+      return `${num(sp.length, 'aktiv')}<div class="dash-logos">${sp.slice(0, 8).map(x => x.logo ? `<img src="${esc(x.logo)}" alt="${esc(x.name)}" title="${esc(x.name)}">` : `<span title="${esc(x.name)}">${esc((x.name || '?').slice(0, 2))}</span>`).join('')}</div>`; } },
+    quick: { t: 'Schnellzugriff', w: 1, body: () => `<div class="dash-quick">${tabChoices().filter(c => c.page !== 'dashboard').slice(0, 12).map(c => `<a href="${c.href}">${tabIcon(c.icon)}<span>${esc(c.full)}</span></a>`).join('')}</div>` },
   };
-  const DEFAULT = ['game', 'posts', 'countdown', 'prep', 'team', 'finance', 'calendar'];
+  Object.values(W).forEach(x => { x.name = x.name || x.t; });
+  const DEFAULT = ['game', 'prep', 'mail', 'team', 'finance', 'upcoming', 'sponsors', 'calendar'];
   const avail = k => W[k] && (!W[k].ok || W[k].ok());
-  const layout = (Array.isArray(me.dash_layout) && me.dash_layout.length ? me.dash_layout : DEFAULT.map(k => ({ k, w: W[k].w }))).filter(x => avail(x.k));
+  const layout = (Array.isArray(me.dash_layout) && me.dash_layout.length ? me.dash_layout : DEFAULT.filter(k => W[k]).map(k => ({ k, w: W[k].w }))).filter(x => avail(x.k));
+  const kpis = [
+    ['Spieler aktiv', dash.counts.players, '#/players'],
+    ['Coaches & Staff', dash.counts.staff, '#/players'],
+    dash.counts.members !== undefined ? ['Mitglieder', dash.counts.members, '#/members'] : null,
+    ['Sponsoren', dash.counts.sponsors, '#/sponsors'],
+    medien ? ['Posts diese Woche', weekPosts, '#/posts'] : null,
+    next ? ['Bis zum Spiel', days === 0 ? 'heute' : `${days} ${days === 1 ? 'Tag' : 'Tage'}`, '#/games'] : null,
+    ['Hinweise', notes.length, '#/', notes.length ? 'hot' : ''],
+  ].filter(Boolean);
 
   view.innerHTML = `
-    <div id="dashMaint"></div><div id="dashTasks"></div>
-    <section class="dash-hello">
-      <div><h1>Willkommen, ${first}</h1>
-        <p class="muted">${fmtDate(dash.today, true)}${me.groups?.length ? ' | ' + esc(me.groups.join(', ')) : ''}</p>
-        <div class="dash-prog">${pills.map(([l, v, c]) => `<div><span>${l}</span><b class="dp ${c}">${v}</b></div>`).join('')}</div></div>
-      <div class="dash-stats">${bigs.map(([ic, n, l]) => `<div><span class="ds-ic">${tabIcon(ic)}</span><div><b>${n ?? 0}</b><small>${esc(l)}</small></div></div>`).join('')}</div>
-    </section>
-    <div class="btn-row" style="margin:-6px 0 16px">${mw ? '<button class="pp btn primary" onclick="planPost()">+ Post planen</button>' : ''}${vw ? '<button class="vw btn" onclick="editGame()">+ Spiel</button>' : ''}
-      <button class="btn keep" id="dashEdit" style="margin-left:auto">Anpassen</button></div>
-    <section class="dash-grid">${layout.map(x => `<article class="card dash-w ${W[x.k].cls || ''}${x.w === 2 ? ' w2' : ''}${W[x.k].tall ? ' tall' : ''}" data-w="${x.k}">${W[x.k].html()}</article>`).join('')
+    <div id="dashMaint"></div>
+    <div class="dash-head"><div><h1>Übersicht</h1><div class="muted small">${fmtDate(dash.today, true)} | ${first}${me.groups?.length ? ' | ' + esc(me.groups.join(', ')) : ''}</div></div>
+      <div class="btn-row">${mw ? '<button class="pp btn primary" onclick="planPost()">+ Post planen</button>' : ''}${vw ? '<button class="vw btn" onclick="editGame()">+ Spiel</button>' : ''}<button class="btn keep" id="dashEdit">Anpassen</button></div></div>
+    <section class="dash-kpis">${kpis.map(([l, v, href, cls]) => `<a href="${href}"><small>${esc(l)}</small><b class="${cls || ''}">${v ?? 0}</b></a>`).join('')}</section>
+    <div id="dashTasks"></div>
+    <section class="dash-grid">${layout.map(x => `<article class="card dash-w ${W[x.k].cls || ''}${x.w === 2 ? ' w2' : ''}${W[x.k].tall ? ' tall' : ''}" data-w="${x.k}">
+        <div class="dash-wh"><h3>${W[x.k].t}</h3>${W[x.k].link ? `<a href="${W[x.k].link[0]}">${W[x.k].link[1]}</a>` : ''}</div><div class="dash-wb">${W[x.k].body()}</div></article>`).join('')
       || '<div class="card muted">Keine Widgets ausgewählt. Über „Anpassen“ welche hinzufügen.</div>'}</section>`;
   layout.forEach(x => { const box = $(`[data-w="${x.k}"] [data-fill]`, view); if (W[x.k].later && box) W[x.k].later(box).catch(() => { box.innerHTML = '<p class="muted small">Gerade nicht verfügbar.</p>'; }); });
 
@@ -179,8 +170,8 @@ App.pages.dashboard = async (view) => {
       openModal(`<h2>Übersicht anpassen</h2>
         <p class="muted small">Haken = Widget anzeigen, Pfeile = Reihenfolge, Breite = eine oder zwei Spalten. Es erscheinen nur Widgets, für die du Rechte hast. Gilt für dein Konto auf allen Geräten.</p>
         <div class="list dash-edit">${items.map((x, i) => `<div class="list-item${x.on ? '' : ' off'}">
-          <label class="check grow"><input type="checkbox" data-on="${i}" ${x.on ? 'checked' : ''}> ${esc(W[x.k].t)}</label>
-          <select class="input" data-wd="${i}" style="width:auto" aria-label="Breite von ${esc(W[x.k].t)}"><option value="1" ${x.w !== 2 ? 'selected' : ''}>Normal</option><option value="2" ${x.w === 2 ? 'selected' : ''}>Breit</option></select>
+          <label class="check grow"><input type="checkbox" data-on="${i}" ${x.on ? 'checked' : ''}> ${esc(W[x.k].name)}</label>
+          <select class="input" data-wd="${i}" style="width:auto" aria-label="Breite von ${esc(W[x.k].name)}"><option value="1" ${x.w !== 2 ? 'selected' : ''}>Normal</option><option value="2" ${x.w === 2 ? 'selected' : ''}>Breit</option></select>
           <button class="btn sm" data-mv="${i}" data-d="-1" ${i ? '' : 'disabled'} aria-label="nach oben">↑</button><button class="btn sm" data-mv="${i}" data-d="1" ${i < items.length - 1 ? '' : 'disabled'} aria-label="nach unten">↓</button></div>`).join('')}</div>
         <div class="modal-foot"><div><button class="btn ghost" id="de_reset">Standard</button></div><div class="btn-row"><button class="btn" onclick="closeModal()">Abbrechen</button><button class="btn primary" id="de_save">Speichern</button></div></div>`);
       $$('[data-on]').forEach(c => c.onchange = () => { items[c.dataset.on].on = c.checked; c.closest('.list-item').classList.toggle('off', !c.checked); });

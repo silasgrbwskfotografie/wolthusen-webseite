@@ -51,7 +51,7 @@ import urllib.error
 
 import website   # öffentliche Webseite (website.py, gleiche Ordnerebene)
 
-VERSION = "1.2"
+VERSION = "1.3"
 APP_NAME = "Wolthusen Hub"
 ENV = os.environ.get
 HOST = ENV("TMH_HOST", "127.0.0.1")
