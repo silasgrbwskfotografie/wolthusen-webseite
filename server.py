@@ -51,7 +51,7 @@ import urllib.error
 
 import website   # öffentliche Webseite (website.py, gleiche Ordnerebene)
 
-VERSION = "1.3"
+VERSION = "1.4"
 APP_NAME = "Wolthusen Hub"
 ENV = os.environ.get
 HOST = ENV("TMH_HOST", "127.0.0.1")
@@ -4787,6 +4787,7 @@ DFB_COLS = {
     "result": ("ergebnis", "endstand"),
 }
 DFB_CLUB = "amisia"   # so erkennen wir die eigene Mannschaft in Heim/Gast
+DFB_MAX_BYTES = 5 * 1024 * 1024
 DFB_AGE = (("alte herren", "Alte Herren"), ("ü3", "Alte Herren"), ("ü4", "Alte Herren"), ("ü5", "Alte Herren"),
            ("d-jun", "D-Jugend"), ("e-jun", "E-Jugend"), ("f-jun", "F-Jugend"), ("g-jun", "G-Jugend"), ("bambini", "G-Jugend"),
            ("u12", "D-Jugend"), ("u13", "D-Jugend"), ("u10", "E-Jugend"), ("u11", "E-Jugend"), ("u8", "F-Jugend"), ("u9", "F-Jugend"),
@@ -6638,6 +6639,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_push(method, p[1:], user)
             if name == "maintenance":
                 return self.api_maintenance(method, p[1:], user, can)
+            if name == "dfbnet-import" and len(p) == 1:
+                return self.api_dfbnet_import(method, user, can)
             if name == "team-image" and len(p) == 2 and p[1].isdigit():
                 return self.api_team_image(method, int(p[1]), user, can)
             if name == "website":
@@ -7909,6 +7912,38 @@ class Handler(BaseHTTPRequestHandler):
 
     # -- Webseite im Hub (Bereich Medien) ---------------------------------
     # -- Wartungsmodus der Webseite (/api/maintenance): Lesen mit Wartung 1, Schalten und Texte mit Wartung 2 --
+    def api_dfbnet_import(self, method, user, can):
+        """Spielplan aus dem DFBnet (CSV/Excel): POST {file: data-URL, filename, team, season, apply}. Ohne apply nur Vorschau, mit apply übernehmen.
+        Die Datei wird nicht gespeichert; beim Übernehmen schickt der Browser sie noch einmal (gleicher Abgleich wie in der Vorschau)."""
+        if method != "POST":
+            return self.send_json({"error": "Methode nicht erlaubt"}, 405)
+        if not can("verein", 2):
+            return self.deny("Für den Import braucht es Schreibrecht im Bereich Verein.")
+        d = self.read_json()
+        m = re.match(r"^data:[^,]*;base64,(.+)$", str(d.get("file") or ""), re.S)
+        if not m:
+            return self.send_json({"error": "Bitte eine CSV- oder Excel-Datei auswählen."}, 400)
+        try:
+            raw = base64.b64decode(m.group(1), validate=False)
+        except ValueError:
+            return self.send_json({"error": "Die Datei ist beschädigt."}, 400)
+        if len(raw) > DFB_MAX_BYTES:
+            return self.send_json({"error": "Die Datei ist zu groß (höchstens 5 MB)."}, 400)
+        season = str(d.get("season") or "").strip()[:20]
+        try:
+            games, notes = dfb_parse(raw, str(d.get("filename") or ""), str(d.get("team") or ""))
+        except Exception:   # kaputte Excel-Datei o. Ä.: verständliche Meldung statt 500
+            return self.send_json({"error": "Die Datei lässt sich nicht lesen. Bitte als CSV oder .xlsx aus dem DFBnet exportieren."}, 400)
+        with db() as conn:
+            season = season or get_setting(conn, "season") or ""
+            plan = dfb_plan(conn, games)
+            if d.get("apply"):
+                n = dfb_apply(conn, plan, season, user)
+                return self.send_json({"ok": True, "counts": n})
+        items = [{"action": x["action"], "id": x["id"], "changes": {k: [str(v[0] if v[0] is not None else ""), str(v[1])] for k, v in x["changes"].items()},
+                  **{k: x["game"][k] for k in ("date", "time", "team", "home", "opponent", "league", "match_no", "kind", "score_us", "score_them")}} for x in plan]
+        return self.send_json({"items": items, "notes": notes[:50], "season": season})
+
     def api_team_image(self, method, tid, user, can):
         """Titelbild einer Mannschaftsseite (Slot team-<id>): ansehen mit Verein 1, ändern mit Verein 2."""
         if not can("verein", 1):

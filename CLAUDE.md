@@ -55,6 +55,8 @@ Betreiber und Hauptnutzer: Silas (Admin). Sprache der Oberfläche und Texte: **D
   Aufräumen in `backup_loop`: unbestätigt nach 30 Tagen, abgemeldet nach drei Jahren (so in der Datenschutzerklärung).
   Livestream: `games.stream_url`, öffentlich nur als geprüfter https-Link (`public_games` -> `stream`).
   Livescore und Highlight Desk gibt es im Wolthusen Hub nicht (bewusst entfernt). Ergebnisse trägt man im Spielplan ein.
+  DFBnet-Import (Spielplan > Import aus DFBnet, `dfbImport` in `05-spielplan.js`): `POST /api/dfbnet-import` (Verein 2, Datei als data-URL, ohne `apply` nur Vorschau),
+  `dfb_parse` (CSV/.xlsx, Spalten über `DFB_COLS`), `dfb_plan` (Abgleich über `games.match_no`), `dfb_apply` (nur `DFB_SYNC_FIELDS`, Ergebnisse nie überschreiben). Nie fussball.de abrufen (DFB-Nutzungsbedingungen). Test `tests/dfbnet_import.py`.
   News: Tabelle `articles` (Bereich Medien, Hub-Seite `#/news`), öffentlich nur über `public_articles` (Status „Veröffentlicht“, Datum erreicht, ohne `notes`).
   Seiten `/news` (`page_news`) und `/news/<id>-<titel>` (`page_article`, falsche Schreibweise per 301 auf `article_slug`), die 3 neuesten im Startseiten-Abschnitt `news`.
   Standard ist `articles.format` = „Blöcke“: JSON aus dem Block-Editor (`editArticle` in `static/pages/06-news.js`, Import fertiger HTML-Artikel per `htmlToArticle`),

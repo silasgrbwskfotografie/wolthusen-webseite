@@ -1,5 +1,10 @@
 # Änderungen
 
+## 1.4 (22.11.2026)
+- Spielplan: Knopf „Import aus DFBnet“. Vereinsspielplan als Excel oder CSV auswählen, Vorschau mit neuen, verlegten und abgesetzten Spielen,
+  dann übernehmen. Abgleich über die Spielkennung (sonst Datum, Mannschaft, Gegner), neue Gegner werden angelegt,
+  eingetragene Ergebnisse, Sponsoren, Livestream und Notizen bleiben unverändert. Die Datei wird nicht gespeichert, nichts wird von fussball.de abgerufen.
+
 ## 1.3 (22.11.2026)
 - Hub schlicht und sachlich (wie Emden Tigers Hub 5.19): ruhige Flächen (hell gebrochenes Weiß, dunkel Graphit), keine Schatten, kein Schimmer,
   kein Wasserzeichen, Systemschrift für Titel und Zahlen, Vereinsviolett nur für Hauptknöpfe, aktiven Menüpunkt und Markierungen
